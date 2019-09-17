@@ -47,13 +47,16 @@
 #include <sys/time.h>
 #include "serial1.h"
 #include <unistd.h>
+#include "JoonasMotor.h"
+
+
 /**
  * @file    main.c
  * @brief   
  * @details  ** Enable global interrupt since Zumo library uses interrupts. **<br>&nbsp;&nbsp;&nbsp;CyGlobalIntEnable;<br>
 */
 
-#if 1
+#if 0
 // Hello World!
 void zmain(void)
 {
@@ -178,7 +181,7 @@ void zmain(void)
             BatteryLed_Write(led);
             if(led) printf("Led is ON\n");
             else printf("Led is OFF\n");
-            Beep(1000, 150);
+            Beep(100, 50);
             while(SW1_Read() == 0) vTaskDelay(10); // wait while button is being pressed
         }        
     }
@@ -433,4 +436,150 @@ void zmain(void)
  }   
 #endif
 
+#if 0
+//Joonas epic rotation//
+void zmain(void)
+{
+    motor_start();
+    rotate90_left(90,1000);
+    rotate90_right(100,1000);
+    motor_stop();
+}   
+#endif
+
+#if 0
+//Week 2, assignment 1
+void zmain(void){
+    BatteryLed_Write(0);
+    bool led = false;
+    int delay[] = {500,500,500,500,500,500,
+                   500,1500,500,1500,500,1500,
+                   500,500,500,500,500,500,};
+    
+    while(true)
+    {
+        // toggle led state when button is pressed
+        if(SW1_Read() == 0) {
+            led = !led;
+            if(led){
+                for(int i = 0; i < 18; i++){
+                    led = !led;
+                    BatteryLed_Write(led);
+                    vTaskDelay(delay[i]);
+                }
+                BatteryLed_Write(0);
+            }
+        }
+    }
+}
+#endif
+
+#if 0
+//Week 2, assignment 2
+void zmain(void){
+    int age;
+    TickType_t aika1;
+    TickType_t aika2;
+    TickType_t totalAika;
+    
+    printf("Enter your age: ");
+    aika1 = xTaskGetTickCount();
+    scanf("%d", &age);
+    aika2 = xTaskGetTickCount();
+    
+    totalAika = aika2 - aika1;
+    
+    if(age <= 21){
+      if(totalAika < 3000){
+        printf("Super fast dude!\n");
+      }
+      else if(totalAika >= 3000 && totalAika <= 5000 ){
+        printf("So mediocre.\n");
+      }
+      else{
+        printf("My granny is faster than you!\n");
+      }
+    }
+    else if(age >= 22 && age <= 50){
+      if(totalAika < 3000){
+        printf("Be quick or be dead\n");
+      }
+      else if(totalAika >= 3000 && totalAika <= 5000 ){
+        printf("You're so average\n");
+      }
+      else{
+        printf("Have you been smoking something illegal?\n");
+      }
+    }
+    else{
+      if(totalAika < 3000){
+        printf("Still going strong\n");
+      }
+      else if(totalAika >= 3000 && totalAika <= 5000 ){
+        printf("You are doing ok for your age\n");
+      }
+      else{
+        printf("Do they still allow you to drive?\n");
+      }
+    }
+    while(true){
+        vTaskDelay(1000);
+    }
+    
+}
+#endif
+
+#if 0
+//Week 2, assignment 3
+void zmain(void){
+    ADC_Battery_Start();
+    
+    BatteryLed_Write(0);
+
+    int16 adcresult =0;
+    float volts = 0.0;
+
+    printf("\nBoot\n");
+
+    //BatteryLed_Write(1); // Switch led on 
+    BatteryLed_Write(0); // Switch led off 
+    //uint8 button;
+    //button = SW1_Read(); // read SW1 on pSoC board
+    // SW1_Read() returns zero when button is pressed
+    // SW1_Read() returns one when button is not pressed
+
+    while(true)
+    {
+        ADC_Battery_StartConvert();
+        
+        adcresult = ADC_Battery_GetResult16(); // get the ADC value (0 - 4095)
+        volts = adcresult / 4095.0 * 5.0;// convert value to Volts
+        volts *= 1.75;
+        if(volts < 4.0){
+            while(SW1_Read() == 1){
+                BatteryLed_Write(1);
+                vTaskDelay(500);
+                BatteryLed_Write(0);
+                vTaskDelay(500);
+            }
+            BatteryLed_Write(0);
+            printf("vmp\n");
+            vTaskDelay(2000);
+            
+        }
+        else{
+            BatteryLed_Write(0);
+            printf("%f\n", volts);
+            vTaskDelay(2000);
+        }
+        vTaskDelay(2000);
+    }
+}
+#endif
+
+#if 1
+void zmain(void){
+    
+}
+#endif
 /* [] END OF FILE */

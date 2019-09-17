@@ -5,12 +5,12 @@
 #define START_MQTT 0    
 
 /* The following definitions must all be in double quotes */
-#define NETWORK_SSID "MY_NETWORK"
+#define NETWORK_SSID "KME410-R4"
 
-#define NETWORK_PASSWORD "password"
+#define NETWORK_PASSWORD "!Password"
 
-#define MQTT_BROKER "192.168.1.179"  
+#define MQTT_BROKER "192.168.100.242"
     
-#define MQTT_CLIENT_ID "Zumo01"    
+#define MQTT_CLIENT_ID "HotBot"
 
 #endif
