@@ -3,8 +3,10 @@
 
 #include "project.h"
     
-void rotate90_left(uint8 speed,uint32 delay);
+void motor_rotate90_left(int start);
 
-void rotate90_right(uint8 speed,uint32 delay);
+void motor_rotate90_right(int start);
+
+void motor_backward_turn(uint8 l_speed, uint8 r_speed, uint32 delay);
 
 #endif

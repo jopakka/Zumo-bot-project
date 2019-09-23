@@ -31,6 +31,7 @@
 
 #include <project.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "Motor.h"
@@ -344,7 +345,7 @@ void zmain(void)
     int ctr = 0;
 
     printf("\nBoot\n");
-    send_mqtt("Zumo01/debug", "Boot");
+    send_mqtt("Zumo024/debug", "Boot");
 
     //BatteryLed_Write(1); // Switch led on 
     BatteryLed_Write(0); // Switch led off 
@@ -352,7 +353,7 @@ void zmain(void)
     while(true)
     {
         printf("Ctr: %d, Button: %d\n", ctr, SW1_Read());
-        print_mqtt("Zumo01/debug", "Ctr: %d, Button: %d", ctr, SW1_Read());
+        print_mqtt("Zumo024/debug", "Ctr: %d, Button: %d", ctr, SW1_Read());
 
         vTaskDelay(1000);
         ctr++;
@@ -441,8 +442,8 @@ void zmain(void)
 void zmain(void)
 {
     motor_start();
-    rotate90_left(90,1000);
-    rotate90_right(100,1000);
+    rotate90_left(1);
+    rotate90_right(1);
     motor_stop();
 }   
 #endif
@@ -577,9 +578,236 @@ void zmain(void){
 }
 #endif
 
-#if 1
+#if 0
+//Week 3, assignment 1
 void zmain(void){
+    for(;;){
+        if(SW1_Read() == 0){
+            motor_start();              // enable motor controller
+            motor_forward(0,0);         // set speed to zero to stop motors
+
+            vTaskDelay(1000);
+
+            motor_forward(200,2000);     // moving forward
+            motor_rotate90_right(1);
+            
+            motor_forward(200,1600);     // moving forward
+            motor_rotate90_right(1);
+            
+            motor_forward(200,1800);
+            motor_rotate90_right(1);
+            
+            motor_forward(0,0);
+            motor_turn(200,150,2500);
+
+            motor_stop();               // disable motor controller
+        }
+    }
+}
+#endif
+
+#if 0
+//Week 3, assignment 2
+void zmain(void){
+    for(;;){
+        if(SW1_Read() == 0){
+            Ultra_Start();              // Ultra Sonic Start function
+            int d = Ultra_GetDistance();
+            motor_start();              // enable motor controller
+            motor_forward(0,0);         // set speed to zero to stop motors
+
+            vTaskDelay(1000);
+            
+            LOOP:for(;;){
+                d = Ultra_GetDistance();
+                if(d < 10){
+                    motor_forward(0,0);
+                    Beep(1000, 255);
+                    motor_backward_turn(100,200,800);
+                    motor_forward(0,0);
+                }
+                while(d >= 10){
+                    motor_forward(100,100);
+                    goto LOOP;
+                }
+            }
+            motor_stop();
+        }
+    }
+}
+#endif
+
+#if 0
+//Week 3, assignment 3
+void zmain(void){
+    struct accData_ data;
+    int turns[3] = {50,100,150};
+    for(;;){
+        if(SW1_Read() == 0){
+            motor_start();              // enable motor controller
+            motor_forward(0,0);         // set speed to zero to stop motors
+
+            vTaskDelay(1000);
+            
+            for(;;){
+                int x = rand() % 3;
+                int y = rand() % 3;
+                LSM303D_Read_Acc(&data);
+                motor_forward(150,1000);
+                motor_turn(turns[x],turns[y],500);
+            }
+            motor_stop();
+         }
+    }
+}
+#endif
+
+#if 1
+//Week 3, assingment 3
+void zmain(){
+    int turns[] = {100,200};
+    size_t n = sizeof(turns) / sizeof(turns[0]);
+    struct accData_ data;
+    LSM303D_Start();
+    motor_start();
     
+    for(;;){
+        if(SW1_Read() == 0){
+            vTaskDelay(1000);
+            while(true){
+                srand(xTaskGetTickCount());
+                while(data.accX < 1700){
+                    int x = rand() % n;
+                    int y = rand() % n;
+                    
+                    motor_forward(150,50);
+                    LSM303D_Read_Acc(&data);
+                    
+                    motor_turn(turns[x],turns[y],300);
+                    LSM303D_Read_Acc(&data);
+                }
+                
+                if(rand() % 2){
+                    motor_backward(200,800);
+                    motor_rotate90_left(1);
+                    LSM303D_Read_Acc(&data);
+                }
+                else{
+                    motor_backward(200,800);
+                    motor_rotate90_right(1);
+                    LSM303D_Read_Acc(&data);
+                }
+            }
+        }
+    }
+}
+#endif
+
+#if 0
+//Week 4, assignment 1
+void zmain(void){
+    int print_mqtt(const char*topic, const char*fmt, ...);
+    int maxLines = 4;
+    struct sensors_ dig;
+    IR_Start();
+    IR_flush();
+    
+    reflectance_start();
+    reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            int r = 0, l = 0;
+            motor_start();
+            vTaskDelay(1000);
+            
+            while(r < 1 || l < 1){
+                motor_forward(100,100);
+                reflectance_digital(&dig);
+                r = r + dig.r3;
+                l = l + dig.l3;
+                motor_forward(0,0);
+            }
+            
+            IR_wait();
+            
+            while(r < maxLines || l < maxLines){
+                motor_forward(100,100);
+                reflectance_digital(&dig);
+                r = r + dig.r3;
+                l = l + dig.l3;
+                motor_forward(0,0);
+            }
+            motor_stop();
+        }
+    }
+}
+#endif
+
+#if 0
+//Week 4, assignment 2
+void zmain(void){
+    struct sensors_ dig;
+    IR_Start();
+    IR_flush();
+    
+    reflectance_start();
+    reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            int r = 0, l = 0;
+            motor_start();
+            vTaskDelay(1000);
+            
+            while(r < 1 || l < 1){
+                motor_forward(100,100);
+                reflectance_digital(&dig);
+                r = r + dig.r3;
+                l = l + dig.l3;
+                motor_forward(0,0);
+            }
+            
+            IR_wait();
+            
+            while(r < 2 || l < 2){
+                motor_forward(100,100);
+                reflectance_digital(&dig);
+                r = r + dig.r3;
+                l = l + dig.l3;
+                motor_forward(0,0);
+            }
+            motor_rotate90_left(1);
+            
+            while(r < 3 || l < 3){
+                motor_forward(100,100);
+                reflectance_digital(&dig);
+                r = r + dig.r3;
+                l = l + dig.l3;
+                motor_forward(0,0);
+            }
+            motor_rotate90_right(1);
+            
+            while(r < 4 || l < 4){
+                motor_forward(100,100);
+                reflectance_digital(&dig);
+                r = r + dig.r3;
+                l = l + dig.l3;
+                motor_forward(0,0);
+            }
+            
+            motor_rotate90_right(1);
+            
+            while(r < 5 || l < 5){
+                motor_forward(100,100);
+                reflectance_digital(&dig);
+                r = r + dig.r3;
+                l = l + dig.l3;
+                motor_stop();
+            }
+            
+        }
+    }
 }
 #endif
 /* [] END OF FILE */

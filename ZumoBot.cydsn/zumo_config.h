@@ -9,8 +9,8 @@
 
 #define NETWORK_PASSWORD "!Password"
 
-#define MQTT_BROKER "192.168.100.242"
+#define MQTT_BROKER "192.168.110.242"
     
-#define MQTT_CLIENT_ID "HotBot"
+#define MQTT_CLIENT_ID "Zumo024"
 
 #endif
