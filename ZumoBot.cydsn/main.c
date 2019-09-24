@@ -618,7 +618,7 @@ void zmain(void){
 
             vTaskDelay(1000);
             
-            LOOP:for(;;){
+            /*LOOP:*/for(;;){
                 d = Ultra_GetDistance();
                 if(d < 10){
                     motor_forward(0,0);
@@ -628,7 +628,7 @@ void zmain(void){
                 }
                 while(d >= 10){
                     motor_forward(100,100);
-                    goto LOOP;
+                    /*goto LOOP;*/
                 }
             }
             motor_stop();
@@ -638,31 +638,6 @@ void zmain(void){
 #endif
 
 #if 0
-//Week 3, assignment 3
-void zmain(void){
-    struct accData_ data;
-    int turns[3] = {50,100,150};
-    for(;;){
-        if(SW1_Read() == 0){
-            motor_start();              // enable motor controller
-            motor_forward(0,0);         // set speed to zero to stop motors
-
-            vTaskDelay(1000);
-            
-            for(;;){
-                int x = rand() % 3;
-                int y = rand() % 3;
-                LSM303D_Read_Acc(&data);
-                motor_forward(150,1000);
-                motor_turn(turns[x],turns[y],500);
-            }
-            motor_stop();
-         }
-    }
-}
-#endif
-
-#if 1
 //Week 3, assingment 3
 void zmain(){
     int turns[] = {100,200};
@@ -674,27 +649,29 @@ void zmain(){
     for(;;){
         if(SW1_Read() == 0){
             vTaskDelay(1000);
+            
             while(true){
                 srand(xTaskGetTickCount());
-                while(data.accX < 1700){
+                
+                while(data.accX < 1750){
                     int x = rand() % n;
                     int y = rand() % n;
                     
                     motor_forward(150,50);
                     LSM303D_Read_Acc(&data);
-                    
+                
                     motor_turn(turns[x],turns[y],300);
                     LSM303D_Read_Acc(&data);
                 }
                 
                 if(rand() % 2){
                     motor_backward(200,800);
-                    motor_rotate90_left(1);
+                    motor_rotate90_left();
                     LSM303D_Read_Acc(&data);
                 }
                 else{
                     motor_backward(200,800);
-                    motor_rotate90_right(1);
+                    motor_rotate90_right();
                     LSM303D_Read_Acc(&data);
                 }
             }
@@ -706,14 +683,13 @@ void zmain(){
 #if 0
 //Week 4, assignment 1
 void zmain(void){
-    int print_mqtt(const char*topic, const char*fmt, ...);
     int maxLines = 4;
     struct sensors_ dig;
     IR_Start();
     IR_flush();
     
     reflectance_start();
-    reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 9000 and others to 9000
     
     for(;;){
         if(SW1_Read() == 0){
@@ -744,24 +720,26 @@ void zmain(void){
 }
 #endif
 
-#if 0
+#if 1
 //Week 4, assignment 2
 void zmain(void){
     struct sensors_ dig;
     IR_Start();
-    IR_flush();
     
     reflectance_start();
     reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
     
     for(;;){
         if(SW1_Read() == 0){
-            int r = 0, l = 0;
-            motor_start();
             vTaskDelay(1000);
+            int r = 0, l = 0;
+            int wait = 0;
+            motor_start();
+            IR_flush();
+            int maxTime = 125;
             
             while(r < 1 || l < 1){
-                motor_forward(100,100);
+                motor_forward(100,1);
                 reflectance_digital(&dig);
                 r = r + dig.r3;
                 l = l + dig.l3;
@@ -771,42 +749,148 @@ void zmain(void){
             IR_wait();
             
             while(r < 2 || l < 2){
-                motor_forward(100,100);
-                reflectance_digital(&dig);
-                r = r + dig.r3;
-                l = l + dig.l3;
+                motor_forward(100,1);
+                wait++;
+                if(wait >= maxTime){
+                    reflectance_digital(&dig);
+                    r = r + dig.r3;
+                    l = l + dig.l3;
+                }
                 motor_forward(0,0);
             }
-            motor_rotate90_left(1);
+            
+            motor_turn_cross_left(60,200,500);
+            motor_turn_cross_right(200,60,420);
+            
+            wait = 0;
             
             while(r < 3 || l < 3){
-                motor_forward(100,100);
-                reflectance_digital(&dig);
-                r = r + dig.r3;
-                l = l + dig.l3;
+                motor_forward(100,1);
+                wait++;
+                if(wait >= maxTime){
+                    reflectance_digital(&dig);
+                    r = r + dig.r3;
+                    l = l + dig.l3;
+                }
                 motor_forward(0,0);
             }
-            motor_rotate90_right(1);
+            
+            motor_turn_cross_right(200,60,450);
             
             while(r < 4 || l < 4){
-                motor_forward(100,100);
-                reflectance_digital(&dig);
-                r = r + dig.r3;
-                l = l + dig.l3;
+                motor_forward(100,1);
+                wait++;
+                if(wait >= maxTime){
+                    reflectance_digital(&dig);
+                    r = r + dig.r3;
+                    l = l + dig.l3;
+                }
                 motor_forward(0,0);
             }
             
-            motor_rotate90_right(1);
+            motor_stop();
+        }
+    }
+}
+#endif
+
+#if 0
+//Week 4, assignment 3
+void zmain(void){
+    struct sensors_ dig;
+    IR_Start();
+    
+    reflectance_start();
+    reflectance_set_threshold(11000, 9000, 9000, 8000, 11000, 11000); // set center sensor threshold to 11000 and others to 9000
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            vTaskDelay(1000);
+            int lines = 0;
+            int wait = 0;
             
-            while(r < 5 || l < 5){
-                motor_forward(100,100);
+            IR_flush();
+            motor_start();
+            
+            while(lines == 0){
+                motor_forward(100,1);
                 reflectance_digital(&dig);
-                r = r + dig.r3;
-                l = l + dig.l3;
-                motor_stop();
+                motor_forward(0,0);
+                
+                if(dig.l3 == 1 && dig.r3 == 1){
+                    lines++;
+                }
             }
             
+            IR_wait();
+            
+            while(lines == 1){
+                reflectance_digital(&dig);
+                
+                wait++;
+                
+                if(dig.l2 == 1 && dig.r2 == 1 && wait >= 100){
+                    lines++;
+                }
+                else if(dig.l1 && dig.r1){
+                    //eteenpäin
+                    motor_forward(150,1);
+                }
+                else if(dig.l1 == 1 && dig.l2 == 0 && dig.r1 == 0){
+                    //vähän oikeelle ja eteen
+                    motor_turn(255,50,1);
+                }
+
+                else if(dig.r1 == 1 && dig.r2 == 0 && dig.l1 == 0){
+                    //vähän vasemmalle ja eteen
+                    motor_turn(50,255,1);
+                }
+
+                else if(dig.l1 == 1 && dig.l2 == 1){
+                    //oikeelle
+                    motor_turn(255,25,1);
+                }
+
+                else if(dig.r1 == 1 && dig.r2 == 1){
+                    //vasemmalle
+                    motor_turn(25,255,1);
+                }
+
+                else if(dig.l2 == 1 && dig.l3 == 1){
+                    //kovaa oikee
+                    motor_turn(255,10,1);
+                }
+
+                else if(dig.r2 == 1 && dig.r3 == 1){
+                    //kovaa vasen
+                    motor_turn(10,255,1);
+                }
+
+                else if(dig.r3 == 1){
+                    //super kovaa vasen
+                    motor_turn(255,0,1);
+                }
+
+                else if(dig.l3 == 1){
+                    // super kovaa oikee
+                    motor_turn(0,255,1);
+                }
+            }
+            
+            motor_stop();
         }
+    }
+}
+#endif
+
+#if 0
+void zmain(void){
+    motor_start();
+    motor_turn_cross_left(60,200,500);
+    motor_turn_cross_right(200,60,500);
+    motor_stop();
+    while(true){
+        vTaskDelay(100);
     }
 }
 #endif
