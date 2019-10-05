@@ -49,6 +49,8 @@
 #include "serial1.h"
 #include <unistd.h>
 #include "JoonasMotor.h"
+#include "notes.h"
+#include "songs.h"
 
 
 /**
@@ -700,18 +702,22 @@ void zmain(void){
             while(r < 1 || l < 1){
                 motor_forward(100,100);
                 reflectance_digital(&dig);
-                r = r + dig.r3;
-                l = l + dig.l3;
+                r = r + dig.r2;
+                l = l + dig.l2;
                 motor_forward(0,0);
             }
             
             IR_wait();
             
             while(r < maxLines || l < maxLines){
-                motor_forward(100,100);
                 reflectance_digital(&dig);
-                r = r + dig.r3;
-                l = l + dig.l3;
+                while(dig.l2 == 1 && dig.r2 == 1){
+                    motor_forward(100,0);
+                    reflectance_digital(&dig);
+                }
+                motor_forward(100,0);
+                r = r + dig.r2;
+                l = l + dig.l2;
                 motor_forward(0,0);
             }
             motor_stop();
@@ -720,7 +726,7 @@ void zmain(void){
 }
 #endif
 
-#if 1
+#if 0
 //Week 4, assignment 2
 void zmain(void){
     struct sensors_ dig;
@@ -728,6 +734,7 @@ void zmain(void){
     
     reflectance_start();
     reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    
     
     for(;;){
         if(SW1_Read() == 0){
@@ -801,7 +808,8 @@ void zmain(void){
     IR_Start();
     
     reflectance_start();
-    reflectance_set_threshold(11000, 9000, 9000, 8000, 11000, 11000); // set center sensor threshold to 11000 and others to 9000
+    //reflectance_set_threshold(11000, 9000, 9000, 8000, 11000, 11000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
     
     for(;;){
         if(SW1_Read() == 0){
@@ -813,7 +821,7 @@ void zmain(void){
             motor_start();
             
             while(lines == 0){
-                motor_forward(100,1);
+                motor_forward(100,0);
                 reflectance_digital(&dig);
                 motor_forward(0,0);
                 
@@ -884,11 +892,109 @@ void zmain(void){
 #endif
 
 #if 0
+//Week 5, assingment 1
 void zmain(void){
-    motor_start();
-    motor_turn_cross_left(60,200,500);
-    motor_turn_cross_right(200,60,500);
-    motor_stop();
+
+    RTC_Start(); // start real time clock
+    RTC_TIME_DATE now;
+    // set current time
+    now.Sec = 0;
+    now.DayOfMonth = 25;
+    now.Month = 9;
+    now.Year = 2018;
+
+    int h, m;
+
+    vTaskDelay(15000);
+    LOOPH:printf("Enter current time(hours only):");
+        scanf("%d", &h);
+        now.Hour = h;
+
+    if(h < 0 || h > 23){
+            printf("Enter correct hours (0-23)\n");
+            goto LOOPH;
+    }
+    LOOPM:printf("Enter current time(minutes only):");
+            scanf("%d", &m);
+            now.Min = m;
+
+            if(m < 0 || m > 59){
+                printf("Enter correct minutes (0-59)\n");
+                goto LOOPM;
+            }
+
+
+
+
+    RTC_WriteTime(&now); // write the time to real time clock
+    while(true){
+         if(SW1_Read() == 0) {
+             // read the current time
+             RTC_DisableInt(); /* Disable Interrupt of RTC Component */
+             now = *RTC_ReadTime(); /* copy the current time to a local variable */
+             RTC_EnableInt(); /* Enable Interrupt of RTC Component */
+             // print the current time
+             print_mqtt("Zumo024/", "%2d:%02d.%02d\n", now.Hour, now.Min, now.Sec);
+
+             // wait until button is released
+             while(SW1_Read() == 0) vTaskDelay(50);
+             }
+             vTaskDelay(50);
+    }
+
+
+}
+#endif
+
+#if 0
+//Week 5, assignment 2
+void zmain(void){
+    for(;;){
+        if(SW1_Read() == 0){
+            Ultra_Start();              // Ultra Sonic Start function
+            int d;
+            motor_start();              // enable motor controller
+            motor_forward(0,0);         // set speed to zero to stop motors
+
+            vTaskDelay(1000);
+            
+            for(;;){
+                srand(xTaskGetTickCount());
+                d = Ultra_GetDistance();
+                motor_forward(255,1);
+                
+                if(d < 15){
+                    motor_forward(0,0);
+                    Beep(1000, 255);
+                    motor_backward(255,500);
+                    if(rand() % 2 == 0){
+                        motor_rotate90_left();
+                        print_mqtt("Zumo024/", "Left");
+                    }
+                    else{
+                        motor_rotate90_right();
+                        print_mqtt("Zumo024/", "Right");
+                    }
+                }
+            }
+            motor_stop();
+        }
+    }
+}
+#endif
+
+#if 1
+//255, 241, 227, 214, 202, 191, 180, 170, 160, 151, 143, 135, 127, 119, 113, 106, 100, 94
+//A1   A1#  B1   C1   C1#  D1   D1#  E1   F1   F1#  G1   G1#  A2   A2#   B2  C2   C2#  D2
+void zmain(void){
+    //int notes[18] = {255, 241, 227, 214, 202, 191, 180, 170, 160, 151, 143, 135, 127, 119, 113, 106, 100, 94};
+    jaateloauto();
+    
+    /*for(int i = 0; i < 18; i++){
+        Beep(200, notes[i]);
+    }*/
+    
+    
     while(true){
         vTaskDelay(100);
     }
