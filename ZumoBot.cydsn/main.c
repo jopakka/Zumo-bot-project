@@ -270,23 +270,26 @@ void zmain(void)
     reflectance_start();
     reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
     
-
-    while(true)
+    for(;;){
+    if(SW1_Read() == 0)
     {
         // read raw sensor values
         reflectance_read(&ref);
         // print out each period of reflectance sensors
-        printf("%5d %5d %5d %5d %5d %5d\r\n", ref.l3, ref.l2, ref.l1, ref.r1, ref.r2, ref.r3);       
+        print_mqtt("Zumo024/","%5d %5d %5d %5d %5d %5d\r", ref.l3, ref.l2, ref.l1, ref.r1, ref.r2, ref.r3);       
         
         // read digital values that are based on threshold. 0 = white, 1 = black
         // when blackness value is over threshold the sensors reads 1, otherwise 0
         reflectance_digital(&dig); 
         //print out 0 or 1 according to results of reflectance period
-        printf("%5d %5d %5d %5d %5d %5d \r\n", dig.l3, dig.l2, dig.l1, dig.r1, dig.r2, dig.r3);        
+        print_mqtt("Zumo024/","%5d %5d %5d %5d %5d %5d \r", dig.l3, dig.l2, dig.l1, dig.r1, dig.r2, dig.r3);        
         
-        vTaskDelay(200);
+        while(SW1_Read() == 0){
+            vTaskDelay(50);
+        }
     }
-}   
+    }
+}
 #endif
 
 
@@ -320,6 +323,7 @@ void zmain(void)
 void zmain(void)
 {
     struct accData_ data;
+    int calX, calY, calZ;
     
     printf("Accelerometer test...\n");
 
@@ -329,12 +333,16 @@ void zmain(void)
     }
     else {
         printf("Device Ok...\n");
+        LSM303D_Read_Acc(&data);
+        calX = data.accX;
+        calY = data.accY;
+        calZ = data.accZ;
     }
     
     while(true)
     {
         LSM303D_Read_Acc(&data);
-        printf("%8d %8d %8d\n",data.accX, data.accY, data.accZ);
+        print_mqtt("Zumo024/","%8d %8d %8d",data.accX - calX, data.accY - calY, data.accZ - calZ);
         vTaskDelay(50);
     }
  }   
@@ -693,35 +701,42 @@ void zmain(void){
     reflectance_start();
     reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 9000 and others to 9000
     
+    int viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+    
     for(;;){
         if(SW1_Read() == 0){
-            int r = 0, l = 0;
+            int x = 0;
             motor_start();
-            vTaskDelay(1000);
             
-            while(r < 1 || l < 1){
-                motor_forward(100,100);
-                reflectance_digital(&dig);
-                r = r + dig.r2;
-                l = l + dig.l2;
-                motor_forward(0,0);
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
             }
             
-            IR_wait();
-            
-            while(r < maxLines || l < maxLines){
-                reflectance_digital(&dig);
-                while(dig.l2 == 1 && dig.r2 == 1){
-                    motor_forward(100,0);
-                    reflectance_digital(&dig);
-                }
+            while(!viiva){
                 motor_forward(100,0);
-                r = r + dig.r2;
-                l = l + dig.l2;
-                motor_forward(0,0);
+                reflectance_digital(&dig);
+                viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
             }
-            motor_stop();
+            
+            if(viiva){
+                motor_forward(0,0);
+                IR_wait();
+                motor_forward(100,0);
+                while(x < maxLines){
+                    reflectance_digital(&dig);
+                    viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                    motor_forward(100,0);
+                    if(viiva){
+                        x++;
+                        while(viiva){
+                            reflectance_digital(&dig);
+                            viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                        }
+                    }
+                }
+            }
         }
+        motor_stop();
     }
 }
 #endif
@@ -733,7 +748,7 @@ void zmain(void){
     IR_Start();
     
     reflectance_start();
-    reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(12000, 10000, 10000, 9000, 11000, 12000); // set center sensor threshold to 11000 and others to 9000
     
     
     for(;;){
@@ -809,7 +824,7 @@ void zmain(void){
     
     reflectance_start();
     //reflectance_set_threshold(11000, 9000, 9000, 8000, 11000, 11000); // set center sensor threshold to 11000 and others to 9000
-    reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(12000, 10000, 10000, 9000, 11000, 12000); // set center sensor threshold to 11000 and others to 9000
     
     for(;;){
         if(SW1_Read() == 0){
@@ -825,7 +840,7 @@ void zmain(void){
                 reflectance_digital(&dig);
                 motor_forward(0,0);
                 
-                if(dig.l3 == 1 && dig.r3 == 1){
+                if(dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1){
                     lines++;
                 }
             }
@@ -834,10 +849,14 @@ void zmain(void){
             
             while(lines == 1){
                 reflectance_digital(&dig);
+                while(dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1){
+                    motor_forward(100,0);
+                    reflectance_digital(&dig);
+                }
                 
                 wait++;
                 
-                if(dig.l2 == 1 && dig.r2 == 1 && wait >= 100){
+                if(dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1){
                     lines++;
                 }
                 else if(dig.l1 && dig.r1){
@@ -906,6 +925,7 @@ void zmain(void){
     int h, m;
 
     vTaskDelay(15000);
+    
     LOOPH:printf("Enter current time(hours only):");
         scanf("%d", &h);
         now.Hour = h;
@@ -983,12 +1003,69 @@ void zmain(void){
 }
 #endif
 
-#if 1
+#if 0
+//Week 5, assignment 1
+void zmain(void){
+    int maxLines = 2;
+    TickType_t startTime, endTime;
+    struct sensors_ dig;
+    IR_Start();
+    IR_flush();
+    
+    reflectance_start();
+    reflectance_set_threshold(9000, 9000, 9000, 9000, 9000, 9000); // set center sensor threshold to 9000 and others to 9000
+    
+    int viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            int x = 0;
+            motor_start();
+            
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+            
+            while(!viiva){
+                motor_forward(100,0);
+                reflectance_digital(&dig);
+                viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            }
+            
+            if(viiva){
+                motor_forward(0,0);
+                IR_wait();
+                startTime = xTaskGetTickCount();
+                motor_forward(100,0);
+                while(x < maxLines){
+                    reflectance_digital(&dig);
+                    viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                    motor_forward(100,0);
+                    if(viiva){
+                        endTime = xTaskGetTickCount();
+                        x++;
+                        while(viiva){
+                            reflectance_digital(&dig);
+                            viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                        }
+                    }
+                }
+            }
+            
+            print_mqtt("Zumo024/lap","Kulunut aika: %d ms", endTime - startTime);
+        }
+        motor_stop();
+    }
+}
+#endif
+
+#if 0
 //255, 241, 227, 214, 202, 191, 180, 170, 160, 151, 143, 135, 127, 119, 113, 106, 100, 94
 //A1   A1#  B1   C1   C1#  D1   D1#  E1   F1   F1#  G1   G1#  A2   A2#   B2  C2   C2#  D2
 void zmain(void){
     //int notes[18] = {255, 241, 227, 214, 202, 191, 180, 170, 160, 151, 143, 135, 127, 119, 113, 106, 100, 94};
-    jaateloauto();
+    //jaateloauto();
+    print_mqtt("Zumo024/", "tadaa");
     
     /*for(int i = 0; i < 18; i++){
         Beep(200, notes[i]);
@@ -997,6 +1074,416 @@ void zmain(void){
     
     while(true){
         vTaskDelay(100);
+    }
+}
+#endif
+
+#if 0
+//Line follower code
+void zmain(void){
+    struct sensors_ dig;
+    IR_Start();
+    
+    reflectance_start();
+    //reflectance_set_threshold(11000, 9000, 9000, 8000, 11000, 11000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(12000, 10000, 10000, 9000, 11000, 12000); // set center sensor threshold to 11000 and others to 9000
+    
+    int viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            vTaskDelay(1000);
+            int x = 0;
+            TickType_t start, stop;
+            
+            IR_flush();
+            motor_start();
+            
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+            
+            while(!viiva){
+                motor_forward(100,0);
+                reflectance_digital(&dig);
+                viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            }
+            
+            if(viiva){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","line");
+                IR_wait();
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d ms", start);
+                motor_forward(100,0);
+                while(x < 3){
+                    reflectance_digital(&dig);
+                    viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                    
+                    if(viiva){
+                        x++;
+                        
+                        while(viiva){
+                            reflectance_digital(&dig);
+                            viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                        }
+                    }
+                    else if(dig.l1 && dig.r1){
+                    //eteenpäin
+                    motor_forward(200,0);
+                    }
+                    /*else if(dig.l1 == 1 && dig.l2 == 0 && dig.r1 == 0){
+                        //vähän oikeelle ja eteen
+                        motor_turn(255,50,0);
+                    }
+
+                    else if(dig.r1 == 1 && dig.r2 == 0 && dig.l1 == 0){
+                        //vähän vasemmalle ja eteen
+                        motor_turn(50,255,0);
+                    }*/
+
+                    else if(dig.l1 == 1 && dig.l2 == 1){
+                        //oikeelle
+                        motor_turn(200,25,0);
+                    }
+
+                    else if(dig.r1 == 1 && dig.r2 == 1){
+                        //vasemmalle
+                        motor_turn(25,200,0);
+                    }
+
+                    else if(dig.l2 == 1 && dig.l3 == 1){
+                        //kovaa oikee
+                        motor_turn(200,10,0);
+                    }
+
+                    else if(dig.r2 == 1 && dig.r3 == 1){
+                        //kovaa vasen
+                        motor_turn(10,200,0);
+                    }
+
+                    else if(dig.r3 == 1){
+                        //super kovaa vasen
+                        motor_turn(200,0,0);
+                    }
+
+                    else if(dig.l3 == 1){
+                        // super kovaa oikee
+                        motor_turn(0,200,0);
+                    }
+                }
+                stop = xTaskGetTickCount();
+                print_mqtt("Zumo024/stop","%d", stop);
+                print_mqtt("Zumo024/time","%d", stop - start);
+            }
+            motor_stop();
+        }
+    }
+}
+#endif
+
+#if 0
+//Line follower code
+void zmain(void){
+    struct sensors_ dig;
+    IR_Start();
+    
+    reflectance_start();
+    //reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(15000, 15000, 15000, 15000, 15000, 15000); // set center sensor threshold to 11000 and others to 9000
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+            
+            vTaskDelay(1000);
+            int x = 0;
+            int viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            TickType_t start, stop;
+            
+            IR_flush();
+            motor_start();
+            
+            while(!viiva){
+                motor_forward(100,0);
+                reflectance_digital(&dig);
+                viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            }
+            
+            if(viiva){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","line");
+                IR_wait();
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d ms", start);
+                motor_forward(100,0);
+                while(x < 3){
+                    reflectance_digital(&dig);
+                    viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                    
+                    if(viiva){
+                        x++;
+                        
+                        while(viiva){
+                            reflectance_digital(&dig);
+                            viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                        }
+                    }
+
+                    else if(dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        //kovaa vasen
+                        motor_turn(125,255,0);
+                    }
+
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 1 && dig.r3 == 1){
+                        //kovaa oikee
+                        motor_turn(255,125,0);
+                    }
+
+                    else if(dig.l3 == 1 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        //super kovaa vasen
+                        motor_turn(0,255,0);
+                    }
+
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 1){
+                        // super kovaa oikee
+                        motor_turn(255,0,0);
+                    }
+                    
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
+                        //suoraan
+                        motor_forward(255,0);
+                    }
+                    
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        // oikee
+                        motor_turn(210,255,0);
+                    }
+                    
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        // vasen
+                        motor_turn(255,210,0);
+                    }
+                }
+                stop = xTaskGetTickCount();
+                print_mqtt("Zumo024/stop","%d", stop);
+                print_mqtt("Zumo024/time","%d", stop - start);
+            }
+            motor_stop();
+            jaateloauto();
+        }
+    }
+}
+#endif
+
+#if 0
+//Zumo code
+void zmain(void){
+    struct sensors_ dig;
+    struct accData_ data;
+    int calX, calY;
+    IR_Start();
+    LSM303D_Start();
+    int turnTime = 0;
+    
+    reflectance_start();
+    //reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(12000, 12000, 12000, 12000, 12000, 12000); // set center sensor threshold to 11000 and others to 9000
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+            
+            vTaskDelay(1000);
+            int viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            TickType_t start, stop;
+            bool wait = true;
+            
+            IR_flush();
+            motor_start();
+            
+            while(!viiva){
+                motor_forward(100,0);
+                reflectance_digital(&dig);
+                viiva = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            }
+            
+            if(viiva){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","zumo");
+                IR_wait();
+                
+                LSM303D_Read_Acc(&data);
+                calY = data.accY;
+                calX = data.accX;
+                
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d", start);
+                motor_forward(100,0);
+                
+                while(SW1_Read() == 1){
+                    if(wait == true){
+                        for(int x = 0; x < 100; x++){
+                            motor_forward(255,1);
+                        }
+                        wait = false;
+                    }
+                    
+                    reflectance_digital(&dig);
+                    LSM303D_Read_Acc(&data);
+                    
+                    if(((data.accX - calX) > 10000) || (data.accX - calX) < -10000 || (data.accY - calY) > 10000 || (data.accY - calY) < -10000){
+                        print_mqtt("Zumo024/hit", "%d", xTaskGetTickCount());
+                    }
+                    
+                    if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        //rynnäkkö
+                        motor_forward(255,0);
+                    }
+
+                    else if(dig.l3 == 1 || dig.l2 == 1 || dig.l1 == 1){
+                        //poistu takavasemmalle
+                        turnTime = 0;
+                        while(turnTime < 1000 || SW1_Read() == 1){
+                            motor_backward_turn(255,0,1);
+                            turnTime++;
+                        }
+                    }
+
+                    else if(dig.r3 == 1 || dig.r2 == 1 || dig.r1 == 1){
+                        //poistu takaoikealle
+                        turnTime = 0;
+                        while(turnTime < 1000 || SW1_Read() == 1){
+                            motor_backward_turn(0,255,1);
+                            turnTime++;
+                        }
+                    }
+                }
+                stop = xTaskGetTickCount();
+                print_mqtt("Zumo024/stop","%d", stop);
+                print_mqtt("Zumo024/time","%d", stop - start);
+            }
+            motor_stop();
+        }
+    }
+}
+#endif
+
+#if 1
+//Maze code
+void zmain(void){
+    struct sensors_ dig;
+    IR_Start();
+    Ultra_Start();
+    
+    int suunta = 0;
+    int i = 0, d, y = 0;
+    
+    reflectance_start();
+    //reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(12000, 12000, 12000, 12000, 12000, 12000); // set center sensor threshold to 11000 and others to 9000
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+            
+            vTaskDelay(1000);
+            int viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+            int viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            TickType_t start, stop;
+            
+            IR_flush();
+            motor_start();
+            
+            while(!viivaL || !viivaR){
+                motor_forward(100,0);
+                reflectance_digital(&dig);
+                viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+                viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+            }
+            
+            if(viivaL || viivaR){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","maze");
+                IR_wait();
+                
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d", start);
+                motor_forward(100,0);
+                
+                while(y < 13){
+                    reflectance_digital(&dig);
+                    d = Ultra_GetDistance();
+                    
+                    viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+                    viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                    
+                    if((viivaL || viivaR) && suunta == 0 && d < 20){
+                        motor_turn_cross_left(50,150,700);
+                        reflectance_digital(&dig);
+                        suunta--;
+                        
+                        while(!viivaL || !viivaR){
+                            reflectance_digital(&dig);
+                            viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+                            viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                            motor_backward(80,0);
+                        }
+                        
+                        d = Ultra_GetDistance();
+                        
+                        if((viivaL || viivaR) && d < 20){
+                            motor_rotate90_right();
+                            motor_rotate90_right();
+                            suunta += 2;
+                            reflectance_digital(&dig);
+                            while(!viivaL || !viivaR){
+                                reflectance_digital(&dig);
+                                viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+                                viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                                motor_backward(80,0);
+                            }
+                        }
+                        
+                        
+                        while(viivaL || viivaR){
+                            reflectance_digital(&dig);
+                            viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+                            viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                        }
+                    }
+                    
+                    else if((viivaL || viivaR) && suunta == -1 && d < 20){
+                        
+                    }
+                    
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
+                        //suoraan
+                        motor_forward(75,0);
+                    }
+                    
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        // oikee
+                        motor_turn(25,75,0);
+                    }
+                    
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        // vasen
+                        motor_turn(75,25,0);
+                    }
+                }
+                stop = xTaskGetTickCount();
+                print_mqtt("Zumo024/stop","%d", stop);
+                print_mqtt("Zumo024/time","%d", stop - start);
+            }
+            motor_stop();
+        }
     }
 }
 #endif

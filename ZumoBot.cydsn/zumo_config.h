@@ -6,6 +6,7 @@
 
 /* The following definitions must all be in double quotes */
 
+#if 1
 #define NETWORK_SSID "KME410-R4"
 
 #define NETWORK_PASSWORD "!Password"
@@ -14,12 +15,18 @@
     
 #define MQTT_CLIENT_ID "Zumo024"
     
-/*#define NETWORK_SSID "SmartIotMQTT"
+#endif
+
+#if 0
+    
+#define NETWORK_SSID "SmartIotMQTT"
 
 #define NETWORK_PASSWORD "SmartIot"
 
 #define MQTT_BROKER "192.168.1.254"
     
-#define MQTT_CLIENT_ID "Zumo024"*/
+#define MQTT_CLIENT_ID "Zumo024"
+    
+#endif
 
 #endif
