@@ -1004,7 +1004,7 @@ void zmain(void){
 #endif
 
 #if 0
-//Week 5, assignment 1
+//Week 5, assignment 3
 void zmain(void){
     int maxLines = 2;
     TickType_t startTime, endTime;
@@ -1079,7 +1079,7 @@ void zmain(void){
 #endif
 
 #if 0
-//Line follower code
+//Line follower code NOT WORKING
 void zmain(void){
     struct sensors_ dig;
     IR_Start();
@@ -1182,8 +1182,10 @@ void zmain(void){
 }
 #endif
 
-#if 0
-//Line follower code
+// PROJECTS
+
+#if 0 // Line follower
+
 void zmain(void){
     struct sensors_ dig;
     IR_Start();
@@ -1278,8 +1280,8 @@ void zmain(void){
 }
 #endif
 
-#if 0
-//Zumo code
+#if 0 // Zumo
+
 void zmain(void){
     struct sensors_ dig;
     struct accData_ data;
@@ -1348,7 +1350,7 @@ void zmain(void){
                     else if(dig.l3 == 1 || dig.l2 == 1 || dig.l1 == 1){
                         //poistu takavasemmalle
                         turnTime = 0;
-                        while(turnTime < 1000 || SW1_Read() == 1){
+                        while(turnTime < 1200 || SW1_Read() == 1){
                             motor_backward_turn(255,0,1);
                             turnTime++;
                         }
@@ -1357,7 +1359,7 @@ void zmain(void){
                     else if(dig.r3 == 1 || dig.r2 == 1 || dig.r1 == 1){
                         //poistu takaoikealle
                         turnTime = 0;
-                        while(turnTime < 1000 || SW1_Read() == 1){
+                        while(turnTime < 1200 || SW1_Read() == 1){
                             motor_backward_turn(0,255,1);
                             turnTime++;
                         }
@@ -1373,118 +1375,454 @@ void zmain(void){
 }
 #endif
 
-#if 1
-//Maze code
+#if 1 // Maze
+
+// setViiva(viivaL, viivaR, dig);
+void setViiva(bool viivaL, bool viivaR, struct sensors_ dig){
+    viivaL = dig.l3 && dig.l2 && dig.l1;
+    viivaR = dig.r1 && dig.r2 && dig.r3;
+}
+
+// followLine(dig);
+void followLine(struct sensors_ dig){
+    if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
+        //suoraan
+        motor_forward(75,0);
+    }
+
+    else if(dig.l3 == 0 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+        // vasen
+        motor_turn(25,75,0);
+    }
+
+    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 0){
+        // oikee
+        motor_turn(75,25,0);
+    }
+
+    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+        // jos kaikki valkosella niin stop
+        motor_forward(0,0);
+    }
+}
+
+/*
+while(viivaL || viivaR){
+    reflectance_digital(&dig);
+    viivaL = dig.l3 && dig.l2 && dig.l1;
+    viivaR = dig.r1 && dig.r2 && dig.r3;
+    motor_forward(80,0);
+}*/
+/*while(!viivaL || !viivaR){
+    reflectance_digital(&dig);
+    viivaL = dig.l3 && dig.l2 && dig.l1;
+    viivaR = dig.r1 && dig.r2 && dig.r3;
+    motor_backward(80,0);
+}*/
+
+// reverseToLine(viivaL, viivaR, dig);
+void reverseToLine(bool viivaL, bool viivaR, struct sensors_ dig){
+    while(!viivaL || !viivaR){
+        reflectance_digital(&dig);
+        setViiva(viivaL, viivaR, dig);
+        motor_backward(75,0);
+    }
+}
+
+// moveWhileLine(viivaL, viivaR, dig);
+void moveWhileLine(bool viivaL, bool viivaR, struct sensors_ dig){
+    while(viivaL || viivaR){
+        // kun viivalla, aja eteenpäin
+        reflectance_digital(&dig);
+        setViiva(viivaL, viivaR, dig);
+        motor_forward(75,0);
+    }
+}
+
+// moveAndCountLines(viivaL, viivaR, dig, maxLines);
+void moveAndCountLines(bool viivaL, bool viivaR, struct sensors_ dig, int maxLines) {
+    int lines = 0;
+    while (lines < maxLines) {
+        moveWhileLine(viivaL, viivaR, dig);
+        followLine(dig);
+        lines++;
+    }
+}
+
 void zmain(void){
     struct sensors_ dig;
+    int suunta = 0;
+    int x = 0, d, y = 0;
+    TickType_t start, stop;
+    bool viivaL = dig.l3 && dig.l2 && dig.l1;
+    bool viivaR = dig.r1 && dig.r2 && dig.r3;
+
     IR_Start();
     Ultra_Start();
-    
-    int suunta = 0;
-    int i = 0, d, y = 0;
+    IR_flush();
+    motor_start();
     
     reflectance_start();
-    //reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
-    reflectance_set_threshold(12000, 12000, 12000, 12000, 12000, 12000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(12000, 12000, 12000, 12000, 12000, 12000);
     
-    for(;;){
+    while(true){
         if(SW1_Read() == 0){
             while(SW1_Read() == 0){
                 vTaskDelay(100);
             }
             
-            vTaskDelay(1000);
-            int viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
-            int viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
-            TickType_t start, stop;
-            
-            IR_flush();
-            motor_start();
+            reflectance_digital(&dig);
             
             while(!viivaL || !viivaR){
-                motor_forward(100,0);
+                followLine(dig);
                 reflectance_digital(&dig);
-                viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
-                viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+                setViiva(viivaL, viivaR, dig);
             }
             
             if(viivaL || viivaR){
                 motor_forward(0,0);
                 print_mqtt("Zumo024/ready","maze");
                 IR_wait();
+                // odottaa IR-komentoa
                 
                 start = xTaskGetTickCount();
                 print_mqtt("Zumo024/start","%d", start);
                 motor_forward(100,0);
+            }
+
+            while(y < 11){ //kun y pienempi kuin 11
+                reflectance_digital(&dig);
+                d = Ultra_GetDistance();
+                setViiva(viivaL, viivaR, dig);
                 
-                while(y < 13){
+                if((viivaL || viivaR) && suunta == 0 && d < 20 && (x == 0 || x == -1 || x == -2)){
+                    motor_turn_cross_left(50,150,600);
                     reflectance_digital(&dig);
-                    d = Ultra_GetDistance();
+                    suunta = -1;
                     
-                    viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
-                    viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
-                    
-                    if((viivaL || viivaR) && suunta == 0 && d < 20){
-                        motor_turn_cross_left(50,150,700);
+                    //reverseToLine(viivaL, viivaR, dig);
+                    while(!viivaL || !viivaR){
                         reflectance_digital(&dig);
-                        suunta--;
-                        
-                        while(!viivaL || !viivaR){
-                            reflectance_digital(&dig);
-                            viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
-                            viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
-                            motor_backward(80,0);
-                        }
-                        
+                        setViiva(viivaL, viivaR, dig);
+                        motor_backward(75,0);
+                    }
+
+                    motor_forward(0,0);
+                    d = Ultra_GetDistance();
+
+                    if((viivaL || viivaR) && d < 20 && suunta == -1){
+                        motor_rotate90_right();
+                        motor_rotate90_right();
+                        suunta = 1;
+                        reflectance_digital(&dig);
                         d = Ultra_GetDistance();
+                        reverseToLine(viivaL, viivaR, dig);
+                    }
+
+                    if((viivaL || viivaR) && d < 40 && suunta == 1){
+                        motor_turn_cross_right(150,50,700);
+                        reverseToLine(viivaL, viivaR, dig);
+
+                        moveAndCountLines(viivaL, viivaR, dig, 2); //follow.line funktio tokalle viivalle asti
+                        y -= 2; //y = y - 2;
+                        motor_turn_cross_right(150,50,700); //tokalla viivalle motor_turn_cross_right(150,50,700);
+                        suunta = -1; //suunta = -1;
                         
-                        if((viivaL || viivaR) && d < 20){
-                            motor_rotate90_right();
-                            motor_rotate90_right();
-                            suunta += 2;
+                        reverseToLine(viivaL, viivaR, dig);
+                        d = Ultra_GetDistance();
+
+                        while(x != -3){
                             reflectance_digital(&dig);
-                            while(!viivaL || !viivaR){
-                                reflectance_digital(&dig);
-                                viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
-                                viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
-                                motor_backward(80,0);
+
+                            if(viivaL || viivaR){
+                                x--;
+                                moveWhileLine(viivaL, viivaR, dig);
+                            }
+
+                            else{
+                                followLine(dig);
                             }
                         }
-                        
-                        
-                        while(viivaL || viivaR){
-                            reflectance_digital(&dig);
-                            viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
-                            viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+
+                        if(x == -3){//x=-3 viivalla motor_turn_cross_left(150,50,700);
+                            motor_turn_cross_right(150,50,700);
+                            reverseToLine(viivaL, viivaR, dig);
+                            suunta = 0;
                         }
-                    }
-                    
-                    else if((viivaL || viivaR) && suunta == -1 && d < 20){
-                        
-                    }
-                    
-                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
-                        //suoraan
-                        motor_forward(75,0);
-                    }
-                    
-                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
-                        // oikee
-                        motor_turn(25,75,0);
-                    }
-                    
-                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
-                        // vasen
-                        motor_turn(75,25,0);
+
+                        suunta = 0;
+                        reverseToLine(viivaL, viivaR, dig);
+                        d = Ultra_GetDistance();
                     }
                 }
-                stop = xTaskGetTickCount();
-                print_mqtt("Zumo024/stop","%d", stop);
-                print_mqtt("Zumo024/time","%d", stop - start);
+
+                else if((viivaL || viivaR) && suunta == 0 && d < 20 && x == -3){
+                    motor_turn_cross_right(150,50,700);
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+
+                    moveAndCountLines(viivaL, viivaR, dig, 4); //follow.line funktio neljännelle viivalle asti
+                    motor_turn_cross_left(150,50,700); //neljännellä viivalle motor_turn_cross_left(150,50,700);
+
+                    suunta = 0;
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+                }
+
+                else if((viivaL || viivaR) && suunta == 0 && d < 20 && (x==1 || x==2)){
+                    motor_turn_cross_right(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = 1;
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+                    
+                    if((viivaL || viivaR) && d < 20 && suunta == 1){
+                        motor_rotate90_left();
+                        motor_rotate90_left();
+                        suunta = -1;
+                        reflectance_digital(&dig);
+                        reverseToLine(viivaL, viivaR, dig);
+                        d = Ultra_GetDistance();
+                    }
+                    
+                    if((viivaL || viivaR) && d < 40 && suunta == -1){
+                        motor_turn_cross_left(150,50,700);
+                        reverseToLine(viivaL, viivaR, dig);
+                    
+                        moveAndCountLines(viivaL, viivaR, dig, 2); //follow.line funktio tokalle viivalle asti
+                        y -= 2;//y = y - 2;
+                        motor_turn_cross_left(150,50,700); //tokalla viivalle motor_turn_cross_left(150,50,700);
+                        suunta = 1;//suunta == 1;
+                        
+                        reverseToLine(viivaL, viivaR, dig);
+                        d = Ultra_GetDistance();
+                        moveWhileLine(viivaL, viivaR, dig);
+                        followLine(dig);
+
+                        while(x != 3){
+                            reflectance_digital(&dig);
+
+                            if(viivaL || viivaR){
+                                x++;
+                                moveWhileLine(viivaL, viivaR, dig);
+                            }
+
+                            else{
+                                followLine(dig);
+                            }
+                        }
+
+                        if(x == 3){//x=3 viivalla motor_turn_cross_left(150,50,700);
+                            motor_turn_cross_left(150,50,700);
+                            reverseToLine(viivaL, viivaR, dig);
+                            suunta = 0;
+                        }
+
+                        d = Ultra_GetDistance();
+                    }
+                }
+
+                else if((viivaL || viivaR) && suunta == 0 && d < 20 && x == 3){
+                    motor_turn_cross_left(150,50,700);
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+
+                    if(viivaL || viivaR){
+                        x++;
+                        moveWhileLine(viivaL, viivaR, dig);
+                    }
+
+                    d = Ultra_GetDistance();
+
+                    if(x == 1){
+                        motor_turn_cross_right(150,50,700);
+                        suunta = 0;
+                    }
+
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+                }
+
+                else if((viivaL || viivaR) && suunta == 0 && d > 20){
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+
+                    if(viivaL || viivaR){
+                        y++;
+                        moveWhileLine(viivaL, viivaR, dig);
+                    }
+
+                    d = Ultra_GetDistance();
+                }
+
+                else{
+                    followLine(dig);
+                }
+            }//end of while y < 11
+
+            while(y == 11 || y == 12){//while y is 11 or 12
+                if((viivaL || viivaR) && suunta == 0 && x < 0){
+                    motor_turn_cross_right(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = 1;
+                    reverseToLine(viivaL, viivaR, dig);
+                }
+
+                else if((viivaL || viivaR) && suunta == 0 && x > 0){
+                    motor_turn_cross_left(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = -1;
+                    reverseToLine(viivaL, viivaR, dig);
+                }
+
+                else if((viivaL || viivaR) && suunta == -1 && x > 0){
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+
+                    if(viivaL || viivaR){
+                        x++;
+                        moveWhileLine(viivaL, viivaR, dig);
+                    }
+                }
+
+                else if((viivaL || viivaR) && suunta == 1 && x < 0){
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+
+                    if(viivaL || viivaR){
+                        x--;
+                        moveWhileLine(viivaL, viivaR, dig);
+                    }
+                }
+
+                else if((viivaL || viivaR) && suunta == -1 && x == 0){
+                    motor_turn_cross_right(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = 0;
+                    reverseToLine(viivaL, viivaR, dig); 
+                }
+
+                else if((viivaL || viivaR) && suunta == 1 && x == 0){
+                    motor_turn_cross_left(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = 0;
+                    reverseToLine(viivaL, viivaR, dig);
+                }
+
+                else{
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+
+                    if(viivaL || viivaR){
+                        y++;
+                        moveWhileLine(viivaL, viivaR, dig);
+                    }
+                }
+            }//end of while y == 11 tai 12
+
+            while(y == 13){//while y is 13
+                if((viivaL || viivaR) && suunta == 0 && x == -1){
+                    motor_turn_cross_right(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = 1;
+                    reverseToLine(viivaL, viivaR, dig);
+                }
+
+                else if((viivaL || viivaR) && suunta == 0 && x == 1){
+                    motor_turn_cross_left(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = -1;
+                    reverseToLine(viivaL, viivaR, dig);
+                }
+                
+                else if((viivaL || viivaR) && suunta == 1 && x == 0){
+                    motor_turn_cross_left(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = 0;
+                    reverseToLine(viivaL, viivaR, dig);
+                }
+
+                else if((viivaL || viivaR) && suunta == -1 && x == 0){
+                    motor_turn_cross_right(50,150,700);
+                    reflectance_digital(&dig);
+                    suunta = 0;
+                    reverseToLine(viivaL, viivaR, dig);
+                }
+
+                else if((viivaL || viivaR) && suunta == -1 && x == 1){
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+                }
+
+                else if((viivaL || viivaR) && suunta == 1 && x == -1){
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+                }
+
+                else{
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+
+                    if(!dig.l3 && !dig.l2 && !dig.l1 && !dig.r1 && !dig.r2 && !dig.r3){
+                        motor_forward(0,0);
+                        motor_stop();
+                    }
+                }             
+            }//end of while y == 13   
+        }//end of button
+    }//end of for
+}//end of main
+#endif
+
+#if 0
+// follow line while going forward
+void followLine(struct sensors_ dig){
+    if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
+        //suoraan
+        motor_forward(75,0);
+    }
+    
+    else if(dig.l3 == 0 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+        // vasen
+        motor_turn(25,75,0);
+    }
+    
+    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 0){
+        // oikee
+        motor_turn(75,25,0);
+    }
+    
+    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+        // jos kaikki valkosella niin stop
+        motor_forward(0,0);
+    }
+}
+
+void zmain(void){
+    struct sensors_ dig;
+    motor_start();
+    reflectance_start();
+    reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    //reflectance_set_threshold(12000, 12000, 12000, 12000, 12000, 12000); // set center sensor threshold to 11000 and others to 9000
+    
+    for(;;){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(200);
             }
-            motor_stop();
+            
+            for(;;){
+                reflectance_digital(&dig);
+                print_mqtt("Zumo024/", "%d %d %d %d %d %d", dig.l3, dig.l2, dig.l1, dig.r1, dig.r2, dig.r3);
+                followLine(dig);
+                
+                
+            }
         }
     }
 }
 #endif
+
 /* [] END OF FILE */
