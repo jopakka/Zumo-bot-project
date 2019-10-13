@@ -7,6 +7,7 @@
 /* The following definitions must all be in double quotes */
 
 #if 1
+
 #define NETWORK_SSID "KME410-R4"
 
 #define NETWORK_PASSWORD "!Password"
