@@ -60,7 +60,7 @@
 */
 
 
-// LINE FOLLOWER DIGITAL
+// LINE FOLLOWER WORKING
 #if 0
 void zmain(void){
     send_mqtt("Zumo024/", "MQTT ready");
@@ -174,8 +174,161 @@ void zmain(void){
 #endif
 
 
+ #if 1
+
+ #define MAXSPEED 255
+
+float convert(int refMin, int refMax){
+    float result = (refMax - refMin) / (23500 - 5100);
+    if(result > 1){
+        return 1;
+    }
+    else if(result < 0){
+        return 0;
+    }
+    else{
+        return result;
+    }
+}
+
+ // LINE FOLLOWER TEST!!!!!!
+void zmain(void){
+    send_mqtt("Zumo024/", "MQTT ready");
+    struct sensors_ dig;
+    struct sensors_ ref;
+    IR_Start();
+    motor_start();
+    int calMin[] = {0, 0, 0, 0, 0, 0};
+    int calMax[] = {23000, 23000, 23000, 23000, 23000, 23000};
+    
+    reflectance_start();
+    reflectance_set_threshold(15000, 15000, 15000, 15000, 15000, 15000);
+    
+    while(true){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+
+            vTaskDelay(500);
+
+            int x = 0;
+            bool viiva = dig.l3 && dig.l2 && dig.l1 && dig.r1 && dig.r2 && dig.r3;
+            TickType_t start, stop;
+            
+            // sensor calibration
+            for(int i = 0; i < 1000; i++){
+                if(i < 125 || (i > 375 && i < 625) || i > 875){
+                    motor_turn_cross_left(100,100,1);
+                }
+                else{
+                    motor_turn_cross_right(100,100,1);
+                }
+                reflectance_read(&ref);
+                if(calMin[0] < ref.l3){
+                    calMin[0] = ref.l3;
+                }
+                if(calMin[1] < ref.l2){
+                    calMin[1] = ref.l2;
+                }
+                if(calMin[2] < ref.l1){
+                    calMin[2] = ref.l1;
+                }
+                if(calMin[3] < ref.r1){
+                    calMin[3] = ref.r1;
+                }
+                if(calMin[4] < ref.r2){
+                    calMin[4] = ref.r2;
+                }
+                if(calMin[5] < ref.r3){
+                    calMin[5] = ref.r3;
+                }
+                if(calMax[0] > ref.l3){
+                    calMax[0] = ref.l3;
+                }
+                if(calMax[1] > ref.l2){
+                    calMax[1] = ref.l2;
+                }
+                if(calMax[2] > ref.l1){
+                    calMax[2] = ref.l1;
+                }
+                if(calMax[3] > ref.r1){
+                    calMax[3] = ref.r1;
+                }
+                if(calMax[4] > ref.r2){
+                    calMax[4] = ref.r2;
+                }
+                if(calMax[5] > ref.r3){
+                    calMax[5] = ref.r3;
+                }
+            }// end of calibration
+            
+            while(!viiva){
+                motor_forward(100,0);
+                reflectance_digital(&dig);
+                viiva = dig.l3 && dig.l2 && dig.l1 && dig.r1 && dig.r2 && dig.r3;
+            }
+            
+            // LINE FOLLOWER CODE
+            if(viiva){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","line");
+                IR_flush();
+                IR_wait();
+
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d", start);
+                motor_forward(255,0);
+
+                while(x < 3){
+                    reflectance_digital(&dig);
+                    reflectance_read(&ref);
+                    viiva = dig.l3 && dig.r3;
+
+                    if(viiva){
+                        x++;
+
+                        while(viiva){
+                            reflectance_digital(&dig);
+                            viiva = dig.l3 && dig.r3;
+                            motor_forward(255,1);
+                        }
+                    }
+
+                    float L3 = convert(calMin[0], calMax[0]);
+                    float L2 = convert(calMin[1], calMax[1]);
+                    float L1 = convert(calMin[2], calMax[2]);
+                    float R1 = convert(calMin[3], calMax[3]);
+                    float R2 = convert(calMin[4], calMax[4]);
+                    float R3 = convert(calMin[5], calMax[5]);
+                    float speedR = R1 + R2 + R3;
+                    float speedL = L3 + L2 + L1;
+
+                    if(speedR > speedL){
+                        speedL /= speedR;
+                        speedR = 1;
+                    }
+                    else{
+                        speedR /= speedL;
+                        speedL = 1;
+                    }
+
+                    motor_turn(speedR,speedL,0);
+                }
+                motor_stop();
+                stop = xTaskGetTickCount();
+                print_mqtt("Zumo024/stop","%d", stop);
+                print_mqtt("Zumo024/time","%d", stop - start);
+                //jaateloauto();
+            }
+        }
+    }
+}
+#endif
+
+
 // ZUMO
-#if 1
+#if 0
 
 #define RAMSPEED 255
 #define CASUALSPEED 150
