@@ -6,7 +6,7 @@
 
 /* The following definitions must all be in double quotes */
 
-#if 1
+#if 0
 
 #define NETWORK_SSID "KME410-R4"
 
@@ -18,7 +18,7 @@
     
 #endif
 
-#if 0
+#if 1
     
 #define NETWORK_SSID "SmartIotMQTT"
 
