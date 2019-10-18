@@ -127,7 +127,7 @@ void zmain(void){
                     
                     //kevyt vasen
                     else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
-                        motor_forward(255,0);;
+                        motor_forward(255,0);
                     }
                     
                     //kevyt oikee
