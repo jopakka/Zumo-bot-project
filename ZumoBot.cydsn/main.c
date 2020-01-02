@@ -31,6 +31,7 @@
 
 #include <project.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "Motor.h"
@@ -47,390 +48,839 @@
 #include <sys/time.h>
 #include "serial1.h"
 #include <unistd.h>
+#include "JoonasMotor.h"
+#include "notes.h"
+#include "songs.h"
+
+
 /**
  * @file    main.c
  * @brief   
  * @details  ** Enable global interrupt since Zumo library uses interrupts. **<br>&nbsp;&nbsp;&nbsp;CyGlobalIntEnable;<br>
 */
 
-#if 1
-// Hello World!
-void zmain(void)
-{
-    printf("\nHello, World!\n");
 
-    while(true)
-    {
-        vTaskDelay(100); // sleep (in an infinite loop)
-    }
- }   
-#endif
-
+// LINE FOLLOWER WORKING
 #if 0
-// Name and age
-void zmain(void)
-{
-    char name[32];
-    int age;
+void zmain(void){
+    struct sensors_ dig;
+    IR_Start();
     
+    reflectance_start();
+    reflectance_set_threshold(15000, 15000, 15000, 15000, 15000, 15000);
     
-    printf("\n\n");
-    
-    printf("Enter your name: ");
-    //fflush(stdout);
-    scanf("%s", name);
-    printf("Enter your age: ");
-    //fflush(stdout);
-    scanf("%d", &age);
-    
-    printf("You are [%s], age = %d\n", name, age);
-
-    while(true)
-    {
-        BatteryLed_Write(!SW1_Read());
-        vTaskDelay(100);
-    }
- }   
-#endif
-
-
-#if 0
-//battery level//
-void zmain(void)
-{
-    ADC_Battery_Start();        
-
-    int16 adcresult =0;
-    float volts = 0.0;
-
-    printf("\nBoot\n");
-
-    //BatteryLed_Write(1); // Switch led on 
-    BatteryLed_Write(0); // Switch led off 
-    //uint8 button;
-    //button = SW1_Read(); // read SW1 on pSoC board
-    // SW1_Read() returns zero when button is pressed
-    // SW1_Read() returns one when button is not pressed
-
-    while(true)
-    {
-        char msg[80];
-        ADC_Battery_StartConvert(); // start sampling
-        if(ADC_Battery_IsEndConversion(ADC_Battery_WAIT_FOR_RESULT)) {   // wait for ADC converted value
-            adcresult = ADC_Battery_GetResult16(); // get the ADC value (0 - 4095)
-            // convert value to Volts
-            // you need to implement the conversion
-            
-            // Print both ADC results and converted value
-            printf("%d %f\r\n",adcresult, volts);
-        }
-        vTaskDelay(500);
-    }
- }   
-#endif
-
-#if 0
-// button
-void zmain(void)
-{
-    while(true) {
-        printf("Press button within 5 seconds!\n");
-        int i = 50;
-        while(i > 0) {
-            if(SW1_Read() == 0) {
-                break;
+    while(true){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
             }
-            vTaskDelay(100);
-            --i;
-        }
-        if(i > 0) {
-            printf("Good work\n");
-            while(SW1_Read() == 0) vTaskDelay(10); // wait until button is released
-        }
-        else {
-            printf("You didn't press the button\n");
-        }
-    }
-}
-#endif
 
-#if 0
-// button
-void zmain(void)
-{
-    printf("\nBoot\n");
+            vTaskDelay(500);
 
-    //BatteryLed_Write(1); // Switch led on 
-    BatteryLed_Write(0); // Switch led off 
-    
-    //uint8 button;
-    //button = SW1_Read(); // read SW1 on pSoC board
-    // SW1_Read() returns zero when button is pressed
-    // SW1_Read() returns one when button is not pressed
-    
-    bool led = false;
-    
-    while(true)
-    {
-        // toggle led state when button is pressed
-        if(SW1_Read() == 0) {
-            led = !led;
-            BatteryLed_Write(led);
-            if(led) printf("Led is ON\n");
-            else printf("Led is OFF\n");
-            Beep(1000, 150);
-            while(SW1_Read() == 0) vTaskDelay(10); // wait while button is being pressed
-        }        
-    }
- }   
-#endif
-
-
-#if 0
-//ultrasonic sensor//
-void zmain(void)
-{
-    Ultra_Start();                          // Ultra Sonic Start function
-    
-    while(true) {
-        int d = Ultra_GetDistance();
-        // Print the detected distance (centimeters)
-        printf("distance = %d\r\n", d);
-        vTaskDelay(200);
-    }
-}   
-#endif
-
-#if 0
-//IR receiverm - how to wait for IR remote commands
-void zmain(void)
-{
-    IR_Start();
-    
-    printf("\n\nIR test\n");
-    
-    IR_flush(); // clear IR receive buffer
-    printf("Buffer cleared\n");
-    
-    bool led = false;
-    // Toggle led when IR signal is received
-    while(true)
-    {
-        IR_wait();  // wait for IR command
-        led = !led;
-        BatteryLed_Write(led);
-        if(led) printf("Led is ON\n");
-        else printf("Led is OFF\n");
-    }    
- }   
-#endif
-
-
-
-#if 0
-//IR receiver - read raw data
-void zmain(void)
-{
-    IR_Start();
-    
-    uint32_t IR_val; 
-    
-    printf("\n\nIR test\n");
-    
-    IR_flush(); // clear IR receive buffer
-    printf("Buffer cleared\n");
-    
-    // print received IR pulses and their lengths
-    while(true)
-    {
-        if(IR_get(&IR_val, portMAX_DELAY)) {
-            int l = IR_val & IR_SIGNAL_MASK; // get pulse length
-            int b = 0;
-            if((IR_val & IR_SIGNAL_HIGH) != 0) b = 1; // get pulse state (0/1)
-            printf("%d %d\r\n",b, l);
-        }
-    }    
- }   
-#endif
-
-
-#if 0
-//reflectance
-void zmain(void)
-{
-    struct sensors_ ref;
-    struct sensors_ dig;
-
-    reflectance_start();
-    reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
-    
-
-    while(true)
-    {
-        // read raw sensor values
-        reflectance_read(&ref);
-        // print out each period of reflectance sensors
-        printf("%5d %5d %5d %5d %5d %5d\r\n", ref.l3, ref.l2, ref.l1, ref.r1, ref.r2, ref.r3);       
-        
-        // read digital values that are based on threshold. 0 = white, 1 = black
-        // when blackness value is over threshold the sensors reads 1, otherwise 0
-        reflectance_digital(&dig); 
-        //print out 0 or 1 according to results of reflectance period
-        printf("%5d %5d %5d %5d %5d %5d \r\n", dig.l3, dig.l2, dig.l1, dig.r1, dig.r2, dig.r3);        
-        
-        vTaskDelay(200);
-    }
-}   
-#endif
-
-
-#if 0
-//motor
-void zmain(void)
-{
-    motor_start();              // enable motor controller
-    motor_forward(0,0);         // set speed to zero to stop motors
-
-    vTaskDelay(3000);
-    
-    motor_forward(100,2000);     // moving forward
-    motor_turn(200,50,2000);     // turn
-    motor_turn(50,200,2000);     // turn
-    motor_backward(100,2000);    // moving backward
-     
-    motor_forward(0,0);         // stop motors
-
-    motor_stop();               // disable motor controller
-    
-    while(true)
-    {
-        vTaskDelay(100);
-    }
-}
-#endif
-
-#if 0
-/* Example of how to use te Accelerometer!!!*/
-void zmain(void)
-{
-    struct accData_ data;
-    
-    printf("Accelerometer test...\n");
-
-    if(!LSM303D_Start()){
-        printf("LSM303D failed to initialize!!! Program is Ending!!!\n");
-        vTaskSuspend(NULL);
-    }
-    else {
-        printf("Device Ok...\n");
-    }
-    
-    while(true)
-    {
-        LSM303D_Read_Acc(&data);
-        printf("%8d %8d %8d\n",data.accX, data.accY, data.accZ);
-        vTaskDelay(50);
-    }
- }   
-#endif    
-
-#if 0
-// MQTT test
-void zmain(void)
-{
-    int ctr = 0;
-
-    printf("\nBoot\n");
-    send_mqtt("Zumo01/debug", "Boot");
-
-    //BatteryLed_Write(1); // Switch led on 
-    BatteryLed_Write(0); // Switch led off 
-
-    while(true)
-    {
-        printf("Ctr: %d, Button: %d\n", ctr, SW1_Read());
-        print_mqtt("Zumo01/debug", "Ctr: %d, Button: %d", ctr, SW1_Read());
-
-        vTaskDelay(1000);
-        ctr++;
-    }
- }   
-#endif
-
-
-#if 0
-void zmain(void)
-{    
-    struct accData_ data;
-    struct sensors_ ref;
-    struct sensors_ dig;
-    
-    printf("MQTT and sensor test...\n");
-
-    if(!LSM303D_Start()){
-        printf("LSM303D failed to initialize!!! Program is Ending!!!\n");
-        vTaskSuspend(NULL);
-    }
-    else {
-        printf("Accelerometer Ok...\n");
-    }
-    
-    int ctr = 0;
-    reflectance_start();
-    while(true)
-    {
-        LSM303D_Read_Acc(&data);
-        // send data when we detect a hit and at 10 second intervals
-        if(data.accX > 1500 || ++ctr > 1000) {
-            printf("Acc: %8d %8d %8d\n",data.accX, data.accY, data.accZ);
-            print_mqtt("Zumo01/acc", "%d,%d,%d", data.accX, data.accY, data.accZ);
-            reflectance_read(&ref);
-            printf("Ref: %8d %8d %8d %8d %8d %8d\n", ref.l3, ref.l2, ref.l1, ref.r1, ref.r2, ref.r3);       
-            print_mqtt("Zumo01/ref", "%d,%d,%d,%d,%d,%d", ref.l3, ref.l2, ref.l1, ref.r1, ref.r2, ref.r3);
+            int x = 0;
             reflectance_digital(&dig);
-            printf("Dig: %8d %8d %8d %8d %8d %8d\n", dig.l3, dig.l2, dig.l1, dig.r1, dig.r2, dig.r3);
-            print_mqtt("Zumo01/dig", "%d,%d,%d,%d,%d,%d", dig.l3, dig.l2, dig.l1, dig.r1, dig.r2, dig.r3);
-            ctr = 0;
-        }
-        vTaskDelay(10);
-    }
- }   
+            bool viiva = dig.l3 && dig.l2 && dig.l1 && dig.r1 && dig.r2 && dig.r3;
+            TickType_t start, stop;
+            bool lost = false;
+            
+            IR_flush();
+            motor_start();
+            
+            while(!viiva){
+                motor_forward(100,0);
+                reflectance_digital(&dig);
+                viiva = dig.l3 && dig.l2 && dig.l1 && dig.r1 && dig.r2 && dig.r3;
+            }
+            
+            // LINE FOLLOWER CODE
+            if(viiva){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","line");
+                IR_wait();
 
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d", start);
+                motor_forward(255,0);
+
+                while(x < 3){ // Runs until x is 3
+                    reflectance_digital(&dig);
+                    viiva = dig.l3 && dig.l2 && dig.l1 && dig.r1 && dig.r2 && dig.r3;
+
+                    if(viiva){
+                        x++;
+
+                        while(viiva){
+                            reflectance_digital(&dig);
+                            viiva = dig.l3 && dig.l2 && dig.l1 && dig.r1 && dig.r2 && dig.r3;
+                            motor_forward(255,0);
+                        }
+                    }
+
+                    //suoraan
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
+                        if(lost){
+                            print_mqtt("Zumo024/miss", "%d", xTaskGetTickCount());
+                            lost = false;
+                        }
+                        motor_forward(255,0);
+                    }
+                    
+                    //kevyt vasen
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        motor_forward(255,0);
+                    }
+                    
+                    //kevyt oikee
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
+                        motor_forward(255,0);
+                    }
+                    
+                    // normi vasen
+                    else if(dig.l3 == 0 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        motor_turn(200,255,0);
+                    }
+
+                    // normi oikee
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 0){
+                        motor_turn(255,200,0);
+                    }
+
+                    //kovaa vasen
+                    else if(dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        motor_turn(55,255,0);
+                        if(!lost){
+                            print_mqtt("Zumo024/line", "%d", xTaskGetTickCount());
+                            lost = true;
+                        }
+                    }
+
+                    //kovaa oikee
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 1 && dig.r3 == 1){
+                        motor_turn(255,55,0);
+                        if(!lost){
+                            print_mqtt("Zumo024/line", "%d", xTaskGetTickCount());
+                            lost = true;
+                        }
+                    }
+
+                    //super kovaa vasen
+                    else if(dig.l3 == 1 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+                        motor_turn(0,255,1);
+                        if(!lost){
+                            print_mqtt("Zumo024/line", "%d", xTaskGetTickCount());
+                            lost = true;
+                        }
+                    }
+
+                    // super kovaa oikee
+                    else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 1){
+                        motor_turn(255,0,1);
+                        if(!lost){
+                            print_mqtt("Zumo024/line", "%d", xTaskGetTickCount());
+                            lost = true;
+                        }
+                    }
+                }
+
+                stop = xTaskGetTickCount();
+                print_mqtt("Zumo024/stop","%d", stop);
+                print_mqtt("Zumo024/time","%d", stop - start);
+            }
+
+            motor_stop();
+            //jaateloauto();
+        }
+    }
+}
 #endif
 
+
+// ZUMO
 #if 0
-void zmain(void)
-{    
-    RTC_Start(); // start real time clock
-    
-    RTC_TIME_DATE now;
 
-    // set current time
-    now.Hour = 12;
-    now.Min = 34;
-    now.Sec = 56;
-    now.DayOfMonth = 25;
-    now.Month = 9;
-    now.Year = 2018;
-    RTC_WriteTime(&now); // write the time to real time clock
+#define RAMSPEED 255
+#define CASUALSPEED 150
+#define BACKTURNDELAY 300
+#define ENEMYDISTANCE 20
+#define TURNDELAY 1000
+#define HITVALUE 15000
 
-    while(true)
-    {
-        if(SW1_Read() == 0) {
-            // read the current time
-            RTC_DisableInt(); /* Disable Interrupt of RTC Component */
-            now = *RTC_ReadTime(); /* copy the current time to a local variable */
-            RTC_EnableInt(); /* Enable Interrupt of RTC Component */
-
-            // print the current time
-            printf("%2d:%02d.%02d\n", now.Hour, now.Min, now.Sec);
-            
-            // wait until button is released
-            while(SW1_Read() == 0) vTaskDelay(50);
+//  checkHit(calX, calY);
+void checkHit(int calX, int calY){
+    struct accData_ data;
+    LSM303D_Read_Acc(&data);
+    if(((data.accX - calX) > HITVALUE) || (data.accX - calX) < -HITVALUE || (data.accY - calY) > HITVALUE || (data.accY - calY) < -HITVALUE){
+        if((data.accX - calX) > HITVALUE && ((data.accY - calY) > HITVALUE || (data.accY - calY) < -HITVALUE)){
+            if((data.accX - calX) > HITVALUE && (data.accY - calY) > HITVALUE){
+                print_mqtt("Zumo024/hit", "%d 225", xTaskGetTickCount());
+            }
+            else if((data.accX - calX) > HITVALUE && (data.accY - calY) < -HITVALUE){
+                print_mqtt("Zumo024/hit", "%d 135", xTaskGetTickCount());
+            }
+            else{
+                print_mqtt("Zumo024/hit", "%d 180", xTaskGetTickCount());
+            }
         }
-        vTaskDelay(50);
+        else if((data.accX - calX) < -HITVALUE && ((data.accY - calY) > HITVALUE || (data.accY - calY) < -HITVALUE)){
+            if((data.accX - calX) < -HITVALUE && (data.accY - calY) < -HITVALUE){
+                print_mqtt("Zumo024/hit", "%d 45", xTaskGetTickCount());
+            }
+            else if((data.accX - calX) < -15000){
+                print_mqtt("Zumo024/hit", "%d 0", xTaskGetTickCount());
+            }
+            else{
+                print_mqtt("Zumo024/hit", "%d 315", xTaskGetTickCount());
+            }
+        }
+        else if((data.accY - calY) > 15000){
+            print_mqtt("Zumo024/hit", "%d 270", xTaskGetTickCount());
+        }
+        else if((data.accY - calY) < -15000){
+            print_mqtt("Zumo024/hit", "%d 90", xTaskGetTickCount());
+        }
     }
- }   
+}
+
+// setViiva(&viivaL, &viivaR);
+void setViiva(bool *viivaL, bool *viivaR){
+    struct sensors_ dig;
+    reflectance_digital(&dig);
+    *viivaL = dig.l3 && dig.l2 && dig.l1;
+    *viivaR = dig.r3 && dig.r2 && dig.r1;
+}
+
+void zmain(void){
+    struct sensors_ dig;
+    struct accData_ data;
+    int calX, calY;
+    bool enterRing = true;
+    bool viivaL = false;
+    bool viivaR = false;
+    
+    IR_Start();
+    LSM303D_Start();
+    Ultra_Start();
+    reflectance_start();
+    reflectance_set_threshold(15000, 15000, 15000, 15000, 15000, 15000);
+    
+    while(true){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+            
+            vTaskDelay(500);
+            TickType_t start, stop;
+            
+            IR_flush();
+            motor_start();
+            while(!viivaL || !viivaR){
+                setViiva(&viivaL, &viivaR);
+                motor_forward(CASUALSPEED,0);
+            }
+            
+            if(viivaL || viivaR){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","zumo");
+                IR_wait();
+                
+                LSM303D_Read_Acc(&data);
+                calY = data.accY;
+                calX = data.accX;
+                
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d", start);
+                motor_forward(CASUALSPEED,0);
+                
+                // ZUMO LOOP
+                while(SW1_Read() == 1){
+                    while(enterRing){
+                        while(viivaL || viivaR){
+                            setViiva(&viivaL, &viivaR);
+                            motor_forward(CASUALSPEED,0);
+                        }
+                        enterRing = false;
+                    }
+                    
+                    reflectance_digital(&dig);
+                    viivaL = dig.l3 && dig.l2 && dig.l1;
+                    viivaR = dig.r3 && dig.r2 && dig.r1;
+                    checkHit(calX, calY);
+                    int d = Ultra_GetDistance();
+                    
+                    // SEARCH ENEMY
+                    while(d > ENEMYDISTANCE && !(viivaL || viivaR)){
+                        d = Ultra_GetDistance();
+                        setViiva(&viivaL, &viivaR);
+                        checkHit(calX, calY);
+                        int i = 0;
+                        while(i < TURNDELAY * 2 && d > ENEMYDISTANCE && !(viivaL || viivaR)){
+                            d = Ultra_GetDistance();
+                            setViiva(&viivaL, &viivaR);
+                            checkHit(calX, calY);
+                            motor_turn(CASUALSPEED,CASUALSPEED / 3,1);
+                            i++;
+                            while(i < TURNDELAY && d > ENEMYDISTANCE && !(viivaL || viivaR)){
+                                d = Ultra_GetDistance();
+                                setViiva(&viivaL, &viivaR);
+                                checkHit(calX, calY);
+                                motor_turn(CASUALSPEED / 3,CASUALSPEED,1);
+                                i++;
+                            }
+                        }
+                    }
+
+                    // ATTACK TO BAD GUYS
+                    if(d <= ENEMYDISTANCE){
+                        motor_forward(RAMSPEED,0);
+                    }
+
+                    // TURN BACK
+                    if(viivaL){
+                        //poistu takavasemmalle
+                        for(int i = 0; i < 100; i++){
+                            checkHit(calX, calY);
+                            motor_backward(RAMSPEED,1);
+                        }
+                        int i = 0;
+                        while(i < BACKTURNDELAY && (!viivaL || !viivaR)){
+                            checkHit(calX, calY);
+                            setViiva(&viivaL, &viivaR);
+                            motor_backward_turn(0,RAMSPEED,1);
+                            i++;
+                        }
+                        motor_forward(0,0);
+                    }
+
+                    else if(viivaR){
+                        //poistu takaoikealle
+                        for(int i = 0; i < 100; i++){
+                            checkHit(calX, calY);
+                            motor_backward(RAMSPEED,1);
+                        }
+                        int i = 0;
+                        while(i < BACKTURNDELAY && (!viivaL || !viivaR)){
+                            checkHit(calX, calY);
+                            setViiva(&viivaL, &viivaR);
+                            motor_backward_turn(RAMSPEED,0,1);
+                            i++;
+                        }
+                        motor_forward(0,0);
+                    }
+                }
+
+                stop = xTaskGetTickCount();
+                print_mqtt("Zumo024/stop","%d", stop);
+                print_mqtt("Zumo024/time","%d", stop - start);
+            }
+
+            motor_stop();
+        }
+    }
+}
+#endif
+
+
+// MAZE
+#if 1
+    
+#define ROTATETIME 550
+
+// line follower function
+void followLine(struct sensors_ dig){
+    reflectance_digital(&dig);
+    bool viivaL = dig.l3 && dig.l2 && dig.l1;
+    bool viivaR = dig.r3 && dig.r2 && dig.r1;
+    while(!viivaL && !viivaR){
+        reflectance_digital(&dig);
+        viivaL = dig.l3 && dig.l2 && dig.l1;
+        viivaR = dig.r3 && dig.r2 && dig.r1;
+        if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 1 && dig.r1 == 1 && dig.r2 == 0 && dig.r3 == 0){
+            //suoraan
+            motor_forward(75,0);
+        }
+
+        else if(dig.l3 == 0 && dig.l2 == 1 && dig.l1 == 1 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+            // vasen
+            motor_turn(0,75,0);
+        }
+        
+        else if(dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+            // vasen kova
+            motor_turn_cross_left(35,75,0);
+        }
+
+        else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 0){
+            // oikee
+            motor_turn(75,0,0);
+        }
+        
+        else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 1 && dig.r3 == 1){
+            // oikee kova
+            motor_turn_cross_right(75,35,0);
+        }
+
+        else if(dig.l3 == 0 && dig.l2 == 0 && dig.l1 == 0 && dig.r1 == 0 && dig.r2 == 0 && dig.r3 == 0){
+            // jos kaikki valkosella niin stop
+            motor_forward(0,0);
+            break;
+        }
+    }
+    motor_forward(0,0);
+}
+// reverseToLine(viivaL, viivaR, dig);
+/*
+while(viivaL || viivaR){
+    reflectance_digital(&dig);
+    viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+    viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+    motor_forward(80,0);
+}*/
+/*while(!viivaL || !viivaR){
+    reflectance_digital(&dig);
+    viivaL = dig.l3 == 1 && dig.l2 == 1 && dig.l1 == 1;
+    viivaR = dig.r1 == 1 && dig.r2 == 1 && dig.r3 == 1;
+    motor_backward(80,0);
+}*/
+// checkViiva(&viivaL, &viivaR);
+void checkViiva(bool *viivaL, bool *viivaR){
+    struct sensors_ dig;
+    reflectance_digital(&dig);
+    *viivaL = dig.l3 && dig.l2 && dig.l1;
+    *viivaR = dig.r1 && dig.r2 && dig.r3;
+}
+// reverse back to line
+void reverseToLine(bool viivaL, bool viivaR, struct sensors_ dig){
+    while(!viivaL && !viivaR){
+        reflectance_digital(&dig);
+        viivaL = dig.l3 && dig.l2;
+        viivaR = dig.r2 && dig.r3;
+        motor_backward(75,0);
+    }
+    motor_forward(0,0);
+}
+void reverseToLineLeftside(bool viivaR, struct sensors_ dig){
+    while(!viivaR){
+        reflectance_digital(&dig);
+        viivaR = dig.r2 && dig.r3;
+        motor_backward(75,0);
+    }
+    motor_forward(0,0);
+}
+void reverseToLineRightside(bool viivaL, struct sensors_ dig){
+    while(!viivaL){
+        reflectance_digital(&dig);
+        viivaL = dig.l2 && dig.l3;
+        motor_backward(75,0);
+    }
+    motor_forward(0,0);
+}
+// moveWhileLine(viivaL, viivaR, dig);
+void moveWhileLine(bool viivaL, bool viivaR, struct sensors_ dig){
+    while(viivaL || viivaR){
+        // kun viivalla, aja eteenpäin
+        reflectance_digital(&dig);
+        viivaL = dig.l3 && dig.l2 && dig.l1;
+        viivaR = dig.r3 && dig.r2 && dig.r1;
+        motor_forward(75,0);
+    }
+}
+void zmain(void){
+    struct sensors_ dig;
+    IR_Start();
+    Ultra_Start();
+    
+    int suunta = 0;
+    int x = 0, d, y = -1, z = 0;
+    // d = distance
+    // z = how many crossroads it has come back
+    
+    reflectance_start();
+    //reflectance_set_threshold(9000, 9000, 11000, 11000, 9000, 9000); // set center sensor threshold to 11000 and others to 9000
+    reflectance_set_threshold(15000, 15000, 15000, 15000, 15000, 15000); // set center sensor threshold to 11000 and others to 9000
+    
+    while(true){
+        if(SW1_Read() == 0){
+            while(SW1_Read() == 0){
+                vTaskDelay(100);
+            }
+            
+            bool viivaL = false;
+            bool viivaR = false;
+            TickType_t start, stop;
+            
+            IR_flush();
+            motor_start();
+            checkViiva(&viivaL, &viivaR);
+            motor_forward(100,0);
+            
+            while(!viivaL && !viivaR){
+                followLine(dig);
+                checkViiva(&viivaL, &viivaR);
+            }
+            
+            if(viivaL || viivaR){
+                motor_forward(0,0);
+                print_mqtt("Zumo024/ready","maze");
+                IR_wait();
+                
+                start = xTaskGetTickCount();
+                print_mqtt("Zumo024/start","%d", start);
+                motor_forward(100,0);
+            }   
+            while(y < 11){//kun y pienempi kuin 11
+                d = Ultra_GetDistance();
+                checkViiva(&viivaL, &viivaR);
+                followLine(dig);
+                
+                if((viivaL || viivaR) && suunta == 0 && d < 20 && (x == 0 || x == -1 || x == -2)){
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                    checkViiva(&viivaL, &viivaR);
+                    suunta = -1;
+                    reverseToLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    motor_forward(0,0);
+                    d = Ultra_GetDistance();
+                    if((viivaL || viivaR) && d < 20 && suunta == -1){
+                        motor_rotate90_right();
+                        motor_rotate90_right();
+                        suunta = 1;
+                        checkViiva(&viivaL, &viivaR);
+                        reverseToLine(viivaL, viivaR, dig);
+                        d = Ultra_GetDistance();
+                        checkViiva(&viivaL, &viivaR);
+                        
+                        if((viivaL || viivaR) && d < 40 && suunta == 1){
+                        motor_turn_cross_right(150,50,ROTATETIME);//suunta alaspäin
+                        reverseToLine(viivaL, viivaR, dig);
+                        moveWhileLine(viivaL, viivaR, dig);
+                        followLine(dig); //followLine tokalle viivalle asti
+                        z = 0;
+                            while(z != -2){
+                                followLine(dig);
+                                checkViiva(&viivaL, &viivaR);
+                                if(viivaL || viivaR){
+                                    y--;
+                                    z--;
+                                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                                    moveWhileLine(viivaL, viivaR, dig);
+                                    checkViiva(&viivaL, &viivaR);
+                                }
+                            }
+                            d = Ultra_GetDistance();
+                            if(z == -2){
+                                motor_turn_cross_right(150,50,ROTATETIME);
+                                suunta = -1;
+                                //y = y - 2;
+                            }
+                            reverseToLine(viivaL, viivaR, dig);
+                            d = Ultra_GetDistance();
+                            while(x != -3){
+                                checkViiva(&viivaL, &viivaR);
+                                x--;
+                                print_mqtt("Zumo024/position", "%d %d", x, y);
+                                moveWhileLine(viivaL, viivaR, dig);
+                                followLine(dig);
+                            }
+                            if(x == -3){//x=-3 viivalla motor_turn_cross_left(150,50,700);
+                                motor_turn_cross_right(150,50,ROTATETIME);
+                                checkViiva(&viivaL, &viivaR);
+                                reverseToLine(viivaL, viivaR, dig);
+                                reflectance_digital(&dig);
+                                checkViiva(&viivaL, &viivaR);
+                                suunta = 0;
+                            }
+                            print_mqtt("Zumo024/position", "%d %d", x, y);
+                            d = Ultra_GetDistance();
+                        }
+                    }
+                }
+                else if(viivaR && suunta == 0 && d < 20 && x == -3){
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    
+                    bool ekaEste = true;
+                    while(x != 1){
+                        d = Ultra_GetDistance();
+                        if(ekaEste && d < 20){
+                            motor_turn_cross_right(150,50,ROTATETIME);
+                            checkViiva(&viivaL, &viivaR);
+                            moveWhileLine(viivaL, viivaR, dig);
+                            checkViiva(&viivaL, &viivaR);
+                            followLine(dig);
+                            y--;
+                            print_mqtt("Zumo024/position", "%d %d", x, y);
+                            checkViiva(&viivaL, &viivaR);
+                            moveWhileLine(viivaL, viivaR, dig);
+                            checkViiva(&viivaL, &viivaR);
+                            followLine(dig);
+                            y--;
+                            print_mqtt("Zumo024/position", "%d %d", x, y);
+                            motor_turn_cross_left(50,150,ROTATETIME);
+                            ekaEste = false;
+                        }
+                        checkViiva(&viivaL, &viivaR);
+                        moveWhileLine(viivaL, viivaR, dig);
+                        checkViiva(&viivaL, &viivaR);
+                        followLine(dig);
+                        x++;
+                        print_mqtt("Zumo024/position", "%d %d", x, y);
+                        d = Ultra_GetDistance();
+                        
+                        if(d < 20){
+                            motor_turn_cross_left(50,150,ROTATETIME);
+                            checkViiva(&viivaL, &viivaR);
+                            moveWhileLine(viivaL, viivaR, dig);
+                            checkViiva(&viivaL, &viivaR);
+                            followLine(dig);
+                            y++;
+                            print_mqtt("Zumo024/position", "%d %d", x, y);
+                            motor_turn_cross_right(150,50,ROTATETIME);
+                        }
+                        checkViiva(&viivaL, &viivaR);
+                        moveWhileLine(viivaL, viivaR, dig);
+                        checkViiva(&viivaL, &viivaR);
+                        followLine(dig);
+                        x++;
+                        print_mqtt("Zumo024/position", "%d %d", x, y);
+                    }
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                    suunta = 0;
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+                }
+                else if((viivaL || viivaR) && suunta == 0 && d < 20 && (x==1 || x==2)){
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                    checkViiva(&viivaL, &viivaR);
+                    suunta = 1;
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+                    
+                    if((viivaL || viivaR) && d < 20 && suunta == 1){
+                        motor_rotate90_left();
+                        motor_rotate90_left();
+                        suunta = -1;
+                        checkViiva(&viivaL, &viivaR);
+                        reverseToLine(viivaL, viivaR, dig);
+                        motor_forward(0,0);
+                        d = Ultra_GetDistance();
+                        
+                        if((viivaL || viivaR) && d < 40 && suunta == -1){
+                            motor_turn_cross_left(50,150,ROTATETIME);//suunta alaspäin
+                            checkViiva(&viivaL, &viivaR);
+                            moveWhileLine(viivaL, viivaR, dig);
+                            checkViiva(&viivaL, &viivaR);
+                            followLine(dig); //followLine tokalle viivalle asti
+                            while(z != -2){
+                                followLine(dig);
+                                checkViiva(&viivaL, &viivaR);
+                                if(viivaL || viivaR){
+                                    y--;
+                                    z--;
+                                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                                    moveWhileLine(viivaL, viivaR, dig);
+                                }
+                            }
+                                d = Ultra_GetDistance();
+                            if(z == -2){
+                                motor_turn_cross_left(50,150,ROTATETIME);
+                                suunta = -1;
+                                reverseToLine(viivaL, viivaR, dig);
+                                //y = y - 2;
+                            }
+                            
+                            d = Ultra_GetDistance();
+                            checkViiva(&viivaL, &viivaR);
+                            moveWhileLine(viivaL, viivaR, dig);
+                            checkViiva(&viivaL, &viivaR);
+                            followLine(dig);
+                            while(x != 3){
+                                checkViiva(&viivaL, &viivaR);
+                                print_mqtt("Zumo024/position", "%d %d", x, y);
+                                moveWhileLine(viivaL, viivaR, dig);
+                                checkViiva(&viivaL, &viivaR);
+                                followLine(dig);
+                                x++;
+                            }
+                            motor_turn_cross_left(50,150,ROTATETIME);
+                            reverseToLine(viivaL, viivaR, dig);
+                            suunta = 0;
+                            z = 0;
+                            print_mqtt("Zumo024/position", "%d %d", x, y);
+                            d = Ultra_GetDistance();
+                            
+                        }
+                    }
+                }
+                else if(viivaL && suunta == 0 && d < 20 && x == 3){
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLineRightside(viivaL, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    motor_forward(0,0);
+                    d = Ultra_GetDistance();
+                    moveWhileLine(viivaL, viivaR, dig);
+                    followLine(dig);
+                    x--;
+                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                    d = Ultra_GetDistance();
+                    while(x != -1){
+                        checkViiva(&viivaL, &viivaR);
+                        moveWhileLine(viivaL, viivaR, dig);
+                        checkViiva(&viivaL, &viivaR);
+                        followLine(dig);
+                        x--;
+                        print_mqtt("Zumo024/position", "%d %d", x, y);
+                    }
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                    suunta = 0;
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLine(viivaL, viivaR, dig);
+                    d = Ultra_GetDistance();
+                }
+                else if((viivaL || viivaR) && suunta == 0 && d >= 20){
+                    checkViiva(&viivaL, &viivaR);
+                    moveWhileLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    followLine(dig);
+                    y++;
+                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                    d = Ultra_GetDistance();
+                }
+                else if((viivaL || viivaR) && suunta == -1 && d >=20 && (x == 1 || x == 2)){
+                    checkViiva(&viivaL, &viivaR);
+                    moveWhileLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    followLine(dig);
+                    x--;
+                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                    suunta = 0;
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLine(viivaL, viivaR, dig);
+                    motor_forward(0,0);
+                    d = Ultra_GetDistance();
+                }
+                else if((viivaL || viivaR) && suunta == 1 && d >=20 && (x == 0 || x == -1 || x == -2)){
+                    checkViiva(&viivaL, &viivaR);
+                    moveWhileLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    followLine(dig);
+                    x++;
+                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                    suunta = 0;
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLine(viivaL, viivaR, dig);
+                    motor_forward(0,0);
+                    d = Ultra_GetDistance();
+                }
+                else if((viivaL || viivaR) && suunta == -1 && d >=20 && (x == 0 || x == -1 || x == -2)){
+                    checkViiva(&viivaL, &viivaR);
+                    moveWhileLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    followLine(dig);
+                    x--;
+                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                    suunta = 0;
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    motor_forward(0,0);
+                    d = Ultra_GetDistance();
+                }
+                else if((viivaL || viivaR) && suunta == 1 && d >=20 && (x == 1 || x == 2)){
+                    checkViiva(&viivaL, &viivaR);
+                    moveWhileLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    followLine(dig);
+                    x++;
+                    print_mqtt("Zumo024/position", "%d %d", x, y);
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                    suunta = 0;
+                    checkViiva(&viivaL, &viivaR);
+                    reverseToLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    motor_forward(0,0);
+                    d = Ultra_GetDistance();
+                }
+                else if((viivaL || viivaR) && suunta == -1 && x == -3){
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                    reverseToLine(viivaL, viivaR, dig);
+                    suunta = 0;
+                }
+                else if((viivaL || viivaR) && suunta == 1 && x == 3){
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                    reverseToLine(viivaL, viivaR, dig);
+                    suunta = 0;
+                }
+            }//end of while y < 11
+            while(y == 11){//while y is 11 or 12
+                checkViiva(&viivaL, &viivaR);
+                if((viivaL || viivaR) && x < 0){
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                    checkViiva(&viivaL, &viivaR);
+                    suunta = 1;
+                    reverseToLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    
+                    while(x < 0){
+                        moveWhileLine(viivaL, viivaR, dig);
+                        checkViiva(&viivaL, &viivaR);
+                        followLine(dig);
+                        checkViiva(&viivaL, &viivaR);
+                        x++;
+                        print_mqtt("Zumo024/position", "%d %d", x, y);
+                    }
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                }
+                else if((viivaL || viivaR) && x > 0){
+                    motor_turn_cross_left(50,150,ROTATETIME);
+                    checkViiva(&viivaL, &viivaR);
+                    suunta = -1;
+                    reverseToLine(viivaL, viivaR, dig);
+                    checkViiva(&viivaL, &viivaR);
+                    
+                    while(x > 0){
+                        moveWhileLine(viivaL, viivaR, dig);
+                        checkViiva(&viivaL, &viivaR);
+                        followLine(dig);
+                        checkViiva(&viivaL, &viivaR);
+                        x--;
+                        print_mqtt("Zumo024/position", "%d %d", x, y);
+                    }
+                    motor_turn_cross_right(150,50,ROTATETIME);
+                }
+                checkViiva(&viivaL, &viivaR);
+                moveWhileLine(viivaL, viivaR, dig);
+                checkViiva(&viivaL, &viivaR);
+                followLine(dig);
+                y++;
+                print_mqtt("Zumo024/position", "%d %d", x, y);
+            }
+            while(y <= 13){//while y is 13
+                checkViiva(&viivaL, &viivaR);
+                moveWhileLine(viivaL, viivaR, dig);
+                checkViiva(&viivaL, &viivaR);
+                followLine(dig);
+                y++;
+                print_mqtt("Zumo024/position", "%d %d", x, y);
+            }
+            checkViiva(&viivaL, &viivaR);
+            moveWhileLine(viivaL, viivaR, dig);
+            checkViiva(&viivaL, &viivaR);
+            followLine(dig);
+            stop = xTaskGetTickCount();
+            motor_stop();
+            print_mqtt("Zumo024/stop", "%d", stop);
+            print_mqtt("Zumo024/time", "%d", stop - start);
+            }//end of button
+    }//end of for
+}//end of main
 #endif
 
 /* [] END OF FILE */
